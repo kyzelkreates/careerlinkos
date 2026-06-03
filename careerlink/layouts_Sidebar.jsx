@@ -157,13 +157,24 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* Invite Jobseeker shortcut */}
-      <div className="px-3 pb-2">
-        <a href="#/jobseeker-setup" className="flex items-center gap-2 px-3 py-2.5 rounded-xl border border-[#d4af37]/25 bg-[#d4af37]/8 hover:bg-[#d4af37]/15 transition-colors group">
-          <Icon name="UserPlus" size={14} className="text-[#d4af37] flex-shrink-0" />
-          <span className="text-xs font-semibold text-[#d4af37]/80 flex-1">Invite Jobseeker</span>
-          <Icon name="ChevronRight" size={11} className="text-[#d4af37]/40 group-hover:text-[#d4af37]/70 transition-colors" />
-        </a>
+      {/* Coach Dashboard quick-access shortcut */}
+      <div className="px-3 pb-2 space-y-2">
+        <button
+          onClick={() => { navigate('/dashboard'); close(); }}
+          className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl border border-[#d4af37]/30 bg-[#d4af37]/10 hover:bg-[#d4af37]/18 transition-all group"
+        >
+          <Icon name="LayoutDashboard" size={14} className="text-[#d4af37] flex-shrink-0" />
+          <span className="text-xs font-bold text-[#d4af37] flex-1 text-left">Coach Dashboard</span>
+          <Icon name="ChevronRight" size={11} className="text-[#d4af37]/40 group-hover:text-[#d4af37]/80 transition-colors" />
+        </button>
+        <button
+          onClick={() => { navigate('/jobseeker-setup'); close(); }}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-700/40 bg-slate-800/20 hover:bg-slate-800/40 transition-all group"
+        >
+          <Icon name="UserPlus" size={13} className="text-slate-500 flex-shrink-0" />
+          <span className="text-xs font-medium text-slate-500 flex-1 text-left">Invite Jobseeker</span>
+          <Icon name="ChevronRight" size={10} className="text-slate-700 group-hover:text-slate-500 transition-colors" />
+        </button>
       </div>
 
       <SidebarFooter />
