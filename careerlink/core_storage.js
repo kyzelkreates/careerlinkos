@@ -457,4 +457,66 @@ export function deriveJobseekerMetrics(jobseekerId, stores, weeklyTarget = 35) {
   }
 }
 
+
+// ─── AI Data Store — sessions, recommendations, walkthrough ──
+const AI_STORAGE_KEYS = {
+  AI_SESSIONS:          'cl:ai:sessions',
+  AI_RECOMMENDATIONS:   'cl:ai:recommendations',
+  AI_WALKTHROUGH:       'cl:ai:walkthrough',
+}
+
+export const useAIDataStore = create((set, get) => ({
+  aiSessions:          persist.get(AI_STORAGE_KEYS.AI_SESSIONS, []),
+  aiRecommendations:   persist.get(AI_STORAGE_KEYS.AI_RECOMMENDATIONS, []),
+  aiWalkthroughProgress: persist.get(AI_STORAGE_KEYS.AI_WALKTHROUGH, {}),
+
+  // Sessions
+  addAISession: (session) => {
+    const next = [{ id: genId(), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), messages: [], ...session }, ...get().aiSessions].slice(0, 50)
+    persist.set(AI_STORAGE_KEYS.AI_SESSIONS, next)
+    set({ aiSessions: next })
+  },
+  updateAISession: (id, patch) => {
+    const next = get().aiSessions.map(s => s.id === id ? { ...s, ...patch, updatedAt: new Date().toISOString() } : s)
+    persist.set(AI_STORAGE_KEYS.AI_SESSIONS, next)
+    set({ aiSessions: next })
+  },
+  clearAISessions: () => {
+    persist.set(AI_STORAGE_KEYS.AI_SESSIONS, [])
+    set({ aiSessions: [] })
+  },
+
+  // Recommendations
+  addAIRecommendation: (rec) => {
+    const next = [{ id: genId(), createdAt: new Date().toISOString(), status: 'pending', humanReviewRequired: true, isDemo: false, ...rec }, ...get().aiRecommendations].slice(0, 200)
+    persist.set(AI_STORAGE_KEYS.AI_RECOMMENDATIONS, next)
+    set({ aiRecommendations: next })
+  },
+  resolveAIRecommendation: (id, outcome) => {
+    const next = get().aiRecommendations.map(r => r.id === id ? { ...r, status: outcome || 'resolved' } : r)
+    persist.set(AI_STORAGE_KEYS.AI_RECOMMENDATIONS, next)
+    set({ aiRecommendations: next })
+  },
+
+  // Walkthrough
+  updateWalkthrough: (userId, patch) => {
+    const current = get().aiWalkthroughProgress
+    const next = { ...current, [userId]: { ...current[userId], ...patch } }
+    persist.set(AI_STORAGE_KEYS.AI_WALKTHROUGH, next)
+    set({ aiWalkthroughProgress: next })
+  },
+  dismissWalkthrough: (userId) => {
+    const current = get().aiWalkthroughProgress
+    const next = { ...current, [userId]: { ...current[userId], dismissed: true } }
+    persist.set(AI_STORAGE_KEYS.AI_WALKTHROUGH, next)
+    set({ aiWalkthroughProgress: next })
+  },
+  resetWalkthrough: (userId) => {
+    const current = get().aiWalkthroughProgress
+    const next = { ...current, [userId]: { completedSteps: [], lastStep: null, dismissed: false, resetAt: new Date().toISOString() } }
+    persist.set(AI_STORAGE_KEYS.AI_WALKTHROUGH, next)
+    set({ aiWalkthroughProgress: next })
+  },
+}))
+
 export { persist, genId as default }
