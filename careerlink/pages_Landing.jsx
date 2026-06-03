@@ -574,7 +574,7 @@ export default function LandingPage() {
       }}>
         <div style={{ fontSize: 12, color: '#374151' }}>
           <span style={{ color: GOLD, fontWeight: 700 }}>CareerLink OS™</span>
-          {' '}— Powered by 4P3X Intelligent AI — Created by Kyzel Kreates
+          {' '}CareerLink OS Powered 4P3X Intelligent AI™ Created by Kyzel Kreates™
         </div>
         <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
           <span style={{

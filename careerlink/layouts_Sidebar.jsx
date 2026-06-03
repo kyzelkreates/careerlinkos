@@ -3,13 +3,14 @@
  * CareerLink OS™ — Sidebar (Burger Drawer)
  * Left overlay drawer. Closes on nav, overlay click, or X.
  * 4P3X gold/black/purple futuristic identity.
- * Powered by 4P3X Intelligent AI — Created by Kyzel Kreates
+ * Powered by CareerLink OS Powered 4P3X Intelligent AI™ Created by Kyzel Kreates™
  * ============================================================
  */
 
 import { useLocation, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import Icon from './components_ui_Icon'
+import PlatformCredit from './components_ui_PlatformCredit'
 import { useAppStore } from './core_storage'
 import { NAV_ITEMS, NAV_GROUPS } from './config_routes'
 

@@ -3,11 +3,12 @@
  * CareerLink OS™ — Jobseeker PWA
  * Mobile-first standalone app for jobseekers.
  * Offline-friendly. No fleet/driver wording.
- * Powered by 4P3X Intelligent AI — Created by Kyzel Kreates
+ * CareerLink OS Powered 4P3X Intelligent AI™ Created by Kyzel Kreates™ — Created by Kyzel Kreates
  * ============================================================
  */
 import { useState, useEffect, useCallback } from 'react'
 import Icon from './components_ui_Icon'
+import { PlatformCreditBlock } from './components_ui_PlatformCredit'
 import { useDataStore, useConfigStore, deriveJobseekerMetrics, STORAGE_KEYS } from './core_storage'
 import { jobseekerService } from './services_careerlink_jobseekerService'
 import { CHECK_IN_QUESTIONS_DEFAULT } from './services_careerlink_demoData'

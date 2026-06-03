@@ -27,7 +27,8 @@ import LandingPage     from './pages_Landing'
 import JobseekerSetup  from './pages_JobseekerSetup'
 import JobseekerApp    from './pages_JobseekerApp'    // legacy PIN-based (kept)
 import JobseekerPwa    from './pages_JobseekerPwa'    // new link-based PWA
-import SupabaseSetup   from './pages_SupabaseSetup'   // live backend setup guide
+import SupabaseSetup         from './pages_SupabaseSetup'         // supabase-specific setup guide
+import LiveBackendSettings  from './pages_LiveBackendSettings'  // multi-provider live backend settings
 
 // ── Coach Dashboard pages ─────────────────────────────────────
 import Dashboard       from './pages_Dashboard'
@@ -72,10 +73,16 @@ export const router = createHashRouter([
     element: <JobseekerSetup />,
   },
 
-  // ── Supabase / Live Backend Setup guide ─────────────────────
+  // ── Supabase-specific setup guide ────────────────────────────
   {
     path: '/supabase-setup',
     element: <SupabaseSetup />,
+  },
+
+  // ── Multi-provider Live Backend Settings ─────────────────────
+  {
+    path: '/live-backend-settings',
+    element: <LiveBackendSettings />,
   },
 
   // ── Legacy PIN-based Jobseeker App (kept for compat) ────────

@@ -10,13 +10,14 @@
  * In LIVE mode: resolves from Supabase pwa_access_links.
  * All submission forms write to Supabase when live.
  *
- * Powered by 4P3X Intelligent AI — Created by Kyzel Kreates
+ * CareerLink OS Powered 4P3X Intelligent AI™ Created by Kyzel Kreates™ — Created by Kyzel Kreates
  * ============================================================
  */
 
 import { useState, useEffect, useCallback } from 'react'
 import { useParams } from 'react-router-dom'
 import Icon from './components_ui_Icon'
+import { PlatformCreditBlock } from './components_ui_PlatformCredit'
 import { useDataStore, useConfigStore, deriveJobseekerMetrics } from './core_storage'
 import { jobseekerService } from './services_careerlink_jobseekerService'
 import { isCLSupabaseReady } from './services_supabase_clSupabaseClient'

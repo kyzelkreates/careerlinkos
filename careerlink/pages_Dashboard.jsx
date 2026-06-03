@@ -16,6 +16,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Icon from './components_ui_Icon'
+import { PlatformCreditBlock } from './components_ui_PlatformCredit'
 import {
   useConfigStore, useDataStore, deriveJobseekerMetrics,
 } from './core_storage'
@@ -606,7 +607,7 @@ export default function Dashboard() {
       {/* ── FOOTER ──────────────────────────────────────── */}
       <div className="pt-1 pb-4 text-center">
         <span className="text-[10px] text-slate-800">
-          CareerLink OS™ · Powered by 4P3X Intelligent AI · Created by Kyzel Kreates
+          CareerLink OS Powered 4P3X Intelligent AI™ Created by Kyzel Kreates™
         </span>
       </div>
 

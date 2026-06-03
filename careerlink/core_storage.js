@@ -51,6 +51,9 @@ export const STORAGE_KEYS = {
   // Notifications
   NOTIF_QUEUE:        'cl:notif:queue',
   NOTIF_PREFS:        'cl:notif:prefs',
+
+  // Backend provider settings
+  BACKEND_SETTINGS:   'cl:config:backendSettings',
 }
 
 // ─── Persist Helpers ──────────────────────────────────────────
@@ -88,7 +91,7 @@ export const genId = () => `${Date.now()}_${Math.random().toString(36).slice(2, 
 // ─── App Config Store (CareerLink programme settings) ─────────
 const DEFAULT_APP_CONFIG = {
   appName:                   'CareerLink OS™',
-  brandLine:                 'Powered by 4P3X Intelligent AI — Created by Kyzel Kreates',
+  brandLine:                 'CareerLink OS Powered 4P3X Intelligent AI™ Created by Kyzel Kreates™',
   organisationName:          'CareerLink Employment Support',
   weeklyTargetHoursDefault:  35,
   applicationTargetDefault:  5,
@@ -123,6 +126,83 @@ export const useConfigStore = create((set, get) => ({
     persist.set(STORAGE_KEYS.APP_CONFIG, DEFAULT_APP_CONFIG)
     set({ config: DEFAULT_APP_CONFIG })
   }
+}))
+
+// ─── Backend Provider Settings ────────────────────────────────
+export const DEFAULT_BACKEND_SETTINGS = {
+  mode:           'demo',        // 'demo' | 'live'
+  activeProvider: 'supabase',    // 'supabase' | 'firebase' | 'aws' | 'custom'
+  providers: {
+    supabase: {
+      enabled:    false,
+      url:        '',
+      anonKey:    '',
+      projectRef: '',
+      status:     'not_configured',
+    },
+    firebase: {
+      enabled:          false,
+      apiKey:           '',
+      authDomain:       '',
+      projectId:        '',
+      storageBucket:    '',
+      messagingSenderId:'',
+      appId:            '',
+      status:           'not_configured',
+    },
+    aws: {
+      enabled:     false,
+      region:      '',
+      projectId:   '',
+      apiEndpoint: '',
+      status:      'not_configured',
+    },
+    custom: {
+      enabled:         false,
+      providerName:    '',
+      apiBaseUrl:      '',
+      publicClientKey: '',
+      authMode:        'none',
+      status:          'not_configured',
+    },
+  },
+  lastCheckedAt: null,
+}
+
+export const useBackendStore = create((set, get) => ({
+  settings: persist.get(STORAGE_KEYS.BACKEND_SETTINGS, DEFAULT_BACKEND_SETTINGS),
+
+  getSettings: () => get().settings,
+
+  updateSettings: (patch) => {
+    const next = { ...get().settings, ...patch }
+    persist.set(STORAGE_KEYS.BACKEND_SETTINGS, next)
+    set({ settings: next })
+  },
+
+  updateProvider: (providerKey, patch) => {
+    const s = get().settings
+    const next = {
+      ...s,
+      providers: {
+        ...s.providers,
+        [providerKey]: { ...s.providers[providerKey], ...patch },
+      },
+    }
+    persist.set(STORAGE_KEYS.BACKEND_SETTINGS, next)
+    set({ settings: next })
+  },
+
+  setActiveProvider: (providerKey) => {
+    const next = { ...get().settings, activeProvider: providerKey }
+    persist.set(STORAGE_KEYS.BACKEND_SETTINGS, next)
+    set({ settings: next })
+  },
+
+  resetSettings: () => {
+    persist.set(STORAGE_KEYS.BACKEND_SETTINGS, DEFAULT_BACKEND_SETTINGS)
+    set({ settings: DEFAULT_BACKEND_SETTINGS })
+  },
 }))
 
 // ─── App Store ────────────────────────────────────────────────

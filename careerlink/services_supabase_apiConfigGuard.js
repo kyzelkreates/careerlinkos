@@ -24,6 +24,18 @@ const FORBIDDEN_KEYS = [
   'ADMIN_TOKEN',
   'ADMIN_SECRET',
   'SECRET_KEY',
+  // AWS backend-only secrets
+  'AWS_SECRET_ACCESS_KEY',
+  'AWS_ACCESS_KEY_ID',
+  'AWS_SESSION_TOKEN',
+  // Firebase/Google backend-only secrets
+  'FIREBASE_SERVICE_ACCOUNT',
+  'GOOGLE_APPLICATION_CREDENTIALS',
+  'GOOGLE_PRIVATE_KEY',
+  // Other backend secrets
+  'MONGO_URI',
+  'POSTGRES_URL',
+  'REDIS_URL',
 ]
 
 // ── Detect if a value looks like a real Supabase service role key ──
@@ -105,4 +117,31 @@ export function maskSecret(value, visibleChars = 8) {
   return value.slice(0, visibleChars) + '••••••••'
 }
 
-export default { validateFrontendConfig, getValidatedSupabaseEnv, maskSecret }
+/**
+ * Check if a single field name + value combination is safe to save.
+ * Used by the backend settings forms before writing to storage.
+ * Returns { safe: boolean, warning: string|null }
+ */
+export function checkFieldSafety(fieldName, fieldValue) {
+  if (!fieldName) return { safe: true, warning: null }
+
+  // Check field name
+  const nameUpper = fieldName.toUpperCase()
+  const badKey = FORBIDDEN_KEYS.find(fk => nameUpper.includes(fk))
+  if (badKey) {
+    return {
+      safe: false,
+      warning: `"${fieldName}" is a backend-only secret and must NEVER be stored in frontend config. Remove it immediately.`,
+    }
+  }
+  // Check value looks like a service role key
+  if (looksLikeServiceRoleKey(fieldValue)) {
+    return {
+      safe: false,
+      warning: `The value for "${fieldName}" looks like a Supabase service role JWT. This is a backend-only secret. Do not store it in frontend config.`,
+    }
+  }
+  return { safe: true, warning: null }
+}
+
+export default { validateFrontendConfig, getValidatedSupabaseEnv, maskSecret, checkFieldSafety }

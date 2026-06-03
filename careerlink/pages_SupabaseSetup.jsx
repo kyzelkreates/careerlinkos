@@ -171,7 +171,7 @@ export default function SupabaseSetup() {
       <div className="sticky top-0 z-10 bg-[#050810]/95 backdrop-blur border-b border-slate-800/60 px-4 md:px-6 py-3">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <button onClick={() => navigate('/settings/backend')}
+            <button onClick={() => navigate('/live-backend-settings')}
               className="p-2 rounded-lg text-slate-500 hover:text-white hover:bg-slate-800 transition-colors">
               <Icon name="ArrowLeft" size={16} />
             </button>

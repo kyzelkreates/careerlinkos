@@ -446,13 +446,13 @@ function BackendPanel() {
       {/* Full setup page link */}
       <div className="mt-4">
         <button
-          onClick={() => navigate('/supabase-setup')}
+          onClick={() => navigate('/live-backend-settings')}
           className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl font-bold text-sm transition-all hover:brightness-110"
           style={{ background: '#d4af3715', border: '1px solid #d4af3730', color: '#d4af37' }}
         >
           <div className="flex items-center gap-2">
             <Icon name="ExternalLink" size={15} style={{ color: '#d4af37' }} />
-            Live Backend Setup — Full Guide
+            Live Backend Settings — Configure Providers
           </div>
           <Icon name="ChevronRight" size={14} style={{ color: '#d4af3780' }} />
         </button>
