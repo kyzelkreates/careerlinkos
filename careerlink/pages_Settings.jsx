@@ -12,7 +12,7 @@ import { useConfigStore, useAuthStore, useAIStore } from './core_storage'
 import { jobseekerService } from './services_careerlink_jobseekerService'
 import { loadDemoData, removeDemoData } from './services_careerlink_demoData'
 import { useDataStore } from './core_storage'
-import { AI_PROVIDERS } from './services_ai_aiConfig'
+import { AI_PROVIDERS, AI_MODES, AI_DISCLAIMER, DEFAULT_AI_CONFIG } from './services_ai_aiConfig'
 
 const TABS = [
   { key: 'profile',    label: 'Profile',      icon: 'User' },
@@ -204,22 +204,62 @@ function ProfilePanel() {
 
 // ── AI Panel ─────────────────────────────────────────────────
 function AIPanel() {
-  const { provider, setProvider } = useAIStore()
+  const { provider, setProvider, config: aiConfig, setConfig } = useAIStore()
+  const [aiMode, setAiMode] = useState(
+    aiConfig?.aiMode ?? AI_MODES.LOCAL
+  )
+  const [saved, setSaved] = useState(false)
+
+  const handleSave = () => {
+    setConfig({ ...aiConfig, aiMode, providerName: provider })
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  const modeDesc = {
+    [AI_MODES.OFF]:       'AI features are disabled. No insights, risk analysis, or AI chat.',
+    [AI_MODES.LOCAL]:     'Local / Rule-based mode. Works fully offline. No API key required. Provides advisory insights and responses based on activity data.',
+    [AI_MODES.API_READY]: 'API-Ready mode. Connects to your chosen provider when an API key is configured. Falls back to local mode if no key is set.',
+  }[aiMode] || ''
+
   return (
     <div>
-      <SectionHead label="CareerLink Support AI Provider"/>
-      <SettingRow label="AI Provider" sub="Used for CareerLink AI advisory insights and chat">
-        <select value={provider} onChange={e => setProvider(e.target.value)}
+      <SectionHead label="4P3X CareerLink Intelligence Layer™"/>
+
+      <SettingRow label="AI Mode" sub="Controls how CareerLink AI works">
+        <select value={aiMode} onChange={e => setAiMode(e.target.value)}
           className="bg-slate-900/60 border border-slate-700/50 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#d4af37]/50">
-          {Object.keys(AI_PROVIDERS || {openai:'OpenAI',local:'Local/Offline'}).map(k => (
-            <option key={k} value={k}>{(AI_PROVIDERS||{})[k]?.name || k}</option>
-          ))}
+          <option value={AI_MODES.OFF}>OFF — Disabled</option>
+          <option value={AI_MODES.LOCAL}>LOCAL / Rule-based (Offline, no key needed)</option>
+          <option value={AI_MODES.API_READY}>API-READY (External provider)</option>
         </select>
       </SettingRow>
-      <div className="mt-4 px-4 py-3 rounded-xl bg-slate-900/40 border border-slate-800/40">
-        <p className="text-[10px] text-slate-600 leading-relaxed">
-          CareerLink Support AI uses advisory-only reasoning. It does not send jobseeker data to external services unless you configure an AI provider with an API key. The built-in advisory engine works offline without any API keys.
-        </p>
+
+      {aiMode !== AI_MODES.OFF && (
+        <SettingRow label="AI Provider" sub="Used only in API-READY mode">
+          <select value={provider} onChange={e => setProvider(e.target.value)}
+            className="bg-slate-900/60 border border-slate-700/50 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none focus:border-[#d4af37]/50">
+            {Object.entries(AI_PROVIDERS).map(([k, v]) => (
+              <option key={k} value={k}>{v.name}</option>
+            ))}
+          </select>
+        </SettingRow>
+      )}
+
+      <div className="mt-3 px-4 py-3 rounded-xl bg-slate-900/40 border border-slate-800/40">
+        <p className="text-[10px] text-slate-400 leading-relaxed font-medium mb-1">Current mode: <span className="text-[#d4af37]">{aiMode.toUpperCase().replace('-', ' ')}</span></p>
+        <p className="text-[10px] text-slate-600 leading-relaxed">{modeDesc}</p>
+      </div>
+
+      <div className="mt-3 px-4 py-3 rounded-xl bg-amber-900/10 border border-amber-700/20">
+        <p className="text-[10px] text-amber-300/70 leading-relaxed">{AI_DISCLAIMER}</p>
+      </div>
+
+      <div className="mt-4">
+        <button onClick={handleSave}
+          className="px-5 py-2.5 rounded-lg bg-[#d4af37] text-black text-sm font-semibold hover:bg-[#e6c34a] transition-colors">
+          {saved ? '✓ Saved' : 'Save AI Settings'}
+        </button>
       </div>
     </div>
   )
