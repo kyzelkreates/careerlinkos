@@ -11,7 +11,10 @@ import Icon from './components_ui_Icon'
 import { useDataStore, useConfigStore, deriveJobseekerMetrics, STORAGE_KEYS } from './core_storage'
 import { jobseekerService } from './services_careerlink_jobseekerService'
 import { CHECK_IN_QUESTIONS_DEFAULT } from './services_careerlink_demoData'
-import { LOCAL_AI_RESPONSES, AI_DISCLAIMER } from './services_ai_aiConfig'
+import { AI_DISCLAIMER, AI_MODES } from './services_ai_aiConfig'
+import { ASSISTANT_KEYS, ASSISTANT_REGISTRY, EXTENDED_AI_CONFIG_DEFAULTS } from './services_ai_careerlinkAiRouter'
+import { handleAi3Query, handleAi4Query } from './services_ai_assistantEngines'
+import AssistantPanel from './modules_ai_AssistantPanel'
 
 const ACTIVITY_TYPES = [
   'Job search','Job application','CV update','Cover letter',
@@ -114,121 +117,74 @@ function ProgressRing({ pct, size = 80, label }) {
 // ─── Tab screens ─────────────────────────────────────────────
 
 // ─── Jobseeker AI Support Assistant ─────────────────────────
-function JobseekerAI({ jobseeker, metrics, weeklyTarget }) {
-  const [open, setOpen]     = useState(false)
-  const [input, setInput]   = useState('')
-  const [history, setHistory] = useState([])
-  const [loading, setLoading] = useState(false)
+// ─── 4P3X Intelligent AI 3 + AI 4 (PWA — separated) ─────────
+function PWAAssistants({ jobseeker, metrics, weeklyTarget, dataStore }) {
+  const aiConfig = { ...EXTENDED_AI_CONFIG_DEFAULTS }
 
-  const QUICK_ACTIONS = [
-    'What should I do next?',
-    'How many hours do I still need this week?',
-    'Help me plan today',
-    'Help me prepare for an interview',
-    'Help me improve my CV/application',
-    'What evidence should I upload?',
-    'I need support',
-    'Explain my weekly progress',
-  ]
+  const ai3 = ASSISTANT_REGISTRY[ASSISTANT_KEYS.AI_3]
+  const ai4 = ASSISTANT_REGISTRY[ASSISTANT_KEYS.AI_4]
 
-  const handleQuery = (q) => {
-    const text = (q || input).trim()
-    if (!text) return
-    setInput('')
-    setHistory(h => [...h, { role: 'user', content: text }])
-    setLoading(true)
-    setTimeout(() => {
-      let response
-      const tl = text.toLowerCase()
-      const r  = LOCAL_AI_RESPONSES.jobseeker
-      const logged  = metrics?.weeklyHoursLogged ?? 0
-      const target  = jobseeker?.weeklyTargetHours ?? weeklyTarget
-      const pct     = metrics?.weeklyTargetPercent ?? 0
+  const logged    = metrics?.weeklyHoursLogged ?? 0
+  const target    = jobseeker?.weeklyTargetHours ?? weeklyTarget
+  const pct       = metrics?.weeklyTargetPercent ?? 0
+  const remaining = Math.max(0, Math.round((target - logged) * 10) / 10)
 
-      if (tl.includes('what should') || tl.includes('next'))         response = r.whatNext
-      else if (tl.includes('hours') || tl.includes('remaining'))      response = r.hoursRemaining(logged, target)
-      else if (tl.includes('plan today') || tl.includes('plan my'))   response = r.planToday
-      else if (tl.includes('interview'))                               response = r.interviewPrep
-      else if (tl.includes('cv') || tl.includes('application'))       response = r.cvHelp
-      else if (tl.includes('evidence') || tl.includes('upload'))      response = r.evidenceUpload
-      else if (tl.includes('support') || tl.includes('barrier'))      response = r.needSupport
-      else if (tl.includes('progress') || tl.includes('explain'))     response = r.explainProgress(pct, logged, target)
-      else response = r.explainProgress(pct, logged, target)
+  const jsId = jobseeker?.id
+  const apps = (dataStore?.applications || []).filter(r => r.jobseekerId === jsId && !r.isDemo)
+  const ivs  = (dataStore?.interviews   || []).filter(r => r.jobseekerId === jsId && !r.isDemo && new Date(r.dateTime) >= new Date())
+  const cis  = (dataStore?.checkIns     || []).filter(r => r.jobseekerId === jsId && !r.isDemo)
+  const evs  = (dataStore?.evidenceRecords || []).filter(r => r.jobseekerId === jsId && !r.isDemo)
 
-      setHistory(h => [...h, { role: 'ai', content: response }])
-      setLoading(false)
-    }, 400)
-  }
-
-  if (!open) return (
-    <button onClick={() => setOpen(true)}
-      className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl bg-[#1a1200]/60 border border-[#d4af37]/20 hover:border-[#d4af37]/40 transition-colors">
-      <div className="w-8 h-8 rounded-full bg-[#d4af37]/15 border border-[#d4af37]/30 flex items-center justify-center flex-shrink-0">
-        <Icon name="Brain" size={14} className="text-[#d4af37]" />
-      </div>
-      <div className="text-left">
-        <div className="text-sm font-semibold text-[#d4af37]">CareerLink AI Assistant</div>
-        <div className="text-[10px] text-slate-500">4P3X Intelligent AI · Advisory only</div>
-      </div>
-      <Icon name="ChevronRight" size={14} className="text-slate-600 ml-auto" />
-    </button>
-  )
+  const ai3Context = { jobseeker }
+  const ai4Context = { jobseeker, weekHours: logged, target, pct, remaining, applications: apps, interviews: ivs, checkIns: cis, evidenceRecords: evs, barriers: [] }
 
   return (
-    <div className="bg-[#0d1426] border border-[#d4af37]/20 rounded-2xl overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800/40">
-        <div className="flex items-center gap-2">
-          <Icon name="Brain" size={14} className="text-[#d4af37]" />
-          <span className="text-sm font-semibold text-[#d4af37]">CareerLink AI Assistant</span>
-        </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setHistory([])} className="text-[10px] text-slate-600 hover:text-slate-400">Reset</button>
-          <button onClick={() => setOpen(false)} className="text-slate-600 hover:text-white"><Icon name="X" size={13} /></button>
-        </div>
-      </div>
-      <div className="px-4 py-2 border-b border-slate-800/30 flex flex-wrap gap-1.5">
-        {QUICK_ACTIONS.map((qa, i) => (
-          <button key={i} onClick={() => handleQuery(qa)}
-            className="text-[10px] px-2 py-1 rounded-full bg-slate-800/60 border border-slate-700/40 text-slate-400 hover:text-[#d4af37] hover:border-[#d4af37]/30 transition-colors">
-            {qa}
-          </button>
-        ))}
-      </div>
-      <div className="p-3 space-y-2 min-h-[120px] max-h-[220px] overflow-y-auto">
-        {history.length === 0 && (
-          <p className="text-xs text-slate-600 text-center mt-4">Ask me anything about your job search progress…</p>
-        )}
-        {history.map((m, i) => (
-          <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-            <div className={`max-w-[85%] px-3 py-2 rounded-xl text-xs leading-relaxed ${m.role === 'user' ? 'bg-[#d4af37]/15 text-[#d4af37] border border-[#d4af37]/20' : 'bg-slate-800/60 text-slate-300 border border-slate-700/40'}`}>
-              {m.content}
-            </div>
+    <div className="space-y-3">
+      {/* AI 3 — Jobseeker PWA Guide */}
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-4 h-4 rounded-full bg-emerald-500/15 border border-emerald-500/25 flex items-center justify-center flex-shrink-0">
+            <span className="text-[8px] font-black text-emerald-400">3</span>
           </div>
-        ))}
-        {loading && (
-          <div className="flex justify-start">
-            <div className="px-3 py-2 rounded-xl bg-slate-800/60 border border-slate-700/40 flex gap-1">
-              {[0,1,2].map(i=><div key={i} className="w-1.5 h-1.5 rounded-full bg-[#d4af37]/50 animate-bounce" style={{animationDelay:`${i*0.15}s`}}/>)}
-            </div>
+          <span className="text-[9px] font-semibold text-slate-600 uppercase tracking-widest">4P3X Intelligent AI 3 — PWA Guide</span>
+        </div>
+        <AssistantPanel
+          assistantKey={ASSISTANT_KEYS.AI_3}
+          publicName={ai3.publicName}
+          displaySubtitle={ai3.displaySubtitle}
+          number={3}
+          quickActions={ai3.quickActions}
+          onQuery={(actionId, ctx) => handleAi3Query(actionId, { ...ai3Context, ...ctx })}
+          initialMessage={handleAi3Query('show_around', ai3Context)}
+          aiConfig={aiConfig}
+          mobileFirst={true}
+        />
+      </div>
+      {/* AI 4 — Jobseeker Support & Encouragement */}
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-4 h-4 rounded-full bg-blue-500/15 border border-blue-500/25 flex items-center justify-center flex-shrink-0">
+            <span className="text-[8px] font-black text-blue-400">4</span>
           </div>
-        )}
+          <span className="text-[9px] font-semibold text-slate-600 uppercase tracking-widest">4P3X Intelligent AI 4 — Support & Encouragement</span>
+        </div>
+        <AssistantPanel
+          assistantKey={ASSISTANT_KEYS.AI_4}
+          publicName={ai4.publicName}
+          displaySubtitle={ai4.displaySubtitle}
+          number={4}
+          quickActions={ai4.quickActions}
+          onQuery={(actionId, ctx) => handleAi4Query(actionId, { ...ai4Context, ...ctx })}
+          initialMessage={handleAi4Query('what_next', ai4Context)}
+          aiConfig={aiConfig}
+          mobileFirst={true}
+        />
       </div>
-      <div className="px-3 pb-2 flex gap-2">
-        <input value={input} onChange={e => setInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleQuery()}
-          placeholder="Ask your CareerLink AI…"
-          className="flex-1 bg-slate-900/60 border border-slate-700/50 rounded-xl px-3 py-2 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-[#d4af37]/50" />
-        <button onClick={() => handleQuery()} disabled={!input.trim() || loading}
-          className="px-3 py-2 rounded-xl bg-[#d4af37] text-black font-semibold disabled:opacity-40">
-          <Icon name="Send" size={13}/>
-        </button>
-      </div>
-      <p className="text-[9px] text-slate-700 px-4 pb-3 leading-relaxed">{AI_DISCLAIMER}</p>
     </div>
   )
 }
 
-function HomeScreen({ jobseeker, metrics, weeklyTarget, onQuickLog, navigate }) {
+function HomeScreen({ jobseeker, metrics, weeklyTarget, onQuickLog, navigate, dataStore }) {
   const status = metrics.progressStatus
   const statusMsg = {
     target_complete: '🎉 Weekly target complete! Great work.',
@@ -297,7 +253,8 @@ function HomeScreen({ jobseeker, metrics, weeklyTarget, onQuickLog, navigate }) 
       </div>
 
       {/* Jobseeker AI Support Assistant */}
-      <JobseekerAI jobseeker={jobseeker} metrics={metrics} weeklyTarget={weeklyTarget}/>
+      {/* 4P3X Intelligent AI 3 + AI 4 — separated PWA assistants */}
+      <PWAAssistants jobseeker={jobseeker} metrics={metrics} weeklyTarget={weeklyTarget} dataStore={dataStore}/>
     </div>
   )
 }
@@ -707,7 +664,7 @@ export default function JobseekerApp() {
       case 'support':      return <SupportScreen jobseeker={jobseeker} onBack={() => setTab('home')}/>
       default:             return (
         <HomeScreen jobseeker={jobseeker} metrics={metrics} weeklyTarget={weeklyTarget}
-          onQuickLog={() => setTab('log')} navigate={setTab}/>
+          onQuickLog={() => setTab('log')} navigate={setTab} dataStore={dataStore}/>
       )
     }
   }
