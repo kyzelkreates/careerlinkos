@@ -1,6 +1,6 @@
 /**
  * ============================================================
- * CareerLink OS™ — Application Router
+ * CareerLink OS™ — Application Router v3
  * Job Search Compliance Dashboard + Jobseeker Activity PWA
  * Powered by 4P3X Intelligent AI — Created by Kyzel Kreates
  * ============================================================
@@ -8,26 +8,14 @@
  * PUBLIC ACCESS — no login required.
  *
  * Route map (hash routing):
- *   /#/                  → LandingPage  (public entry)
- *   /#/dashboard         → Coach Dashboard
- *   /#/jobseekers        → Jobseeker list
- *   /#/weekly-activity   → Weekly Activity
- *   /#/applications      → Applications
- *   /#/interviews        → Interviews
- *   /#/evidence          → Evidence
- *   /#/check-ins         → Check-ins
- *   /#/tasks             → Tasks
- *   /#/ai                → AI Assistants
- *   /#/support-risks     → Support & Risks
- *   /#/reports           → Reports
- *   /#/settings          → Settings
- *   /#/jobseeker-app     → Jobseeker PWA
- *   /#/jobseeker-setup   → Jobseeker Setup
- *   /#/auth/*            → Auth pages (preserved, not in main flow)
- *
- * AuthGuard is NOT used. All dashboard routes are public.
- * Auth files remain in the codebase but are not in the
- * critical render path.
+ *   /#/                       → LandingPage  (public entry)
+ *   /#/pwa/:publicLinkId      → JobseekerPwa (link-based, per jobseeker)
+ *   /#/jobseeker-setup        → JobseekerSetup (coach creates + shares link)
+ *   /#/jobseeker-app          → JobseekerApp (legacy PIN-based, kept for compat)
+ *   /#/dashboard              → Coach Dashboard
+ *   /#/jobseekers             → Jobseeker list
+ *   … all other coach routes  → inside AppShell
+ *   /#/auth/*                 → Auth pages (preserved, not in main flow)
  * ============================================================
  */
 
@@ -35,11 +23,12 @@ import { createHashRouter } from 'react-router-dom'
 import AppShell        from './layouts_AppShell'
 import LandingPage     from './pages_Landing'
 
-// Jobseeker PWA
+// ── Jobseeker PWA ─────────────────────────────────────────────
 import JobseekerSetup  from './pages_JobseekerSetup'
-import JobseekerApp    from './pages_JobseekerApp'
+import JobseekerApp    from './pages_JobseekerApp'    // legacy PIN-based (kept)
+import JobseekerPwa    from './pages_JobseekerPwa'    // new link-based PWA
 
-// Dashboard pages
+// ── Coach Dashboard pages ─────────────────────────────────────
 import Dashboard       from './pages_Dashboard'
 import Jobseekers      from './pages_Jobseekers'
 import WeeklyActivity  from './pages_WeeklyActivity'
@@ -54,7 +43,7 @@ import AIPage          from './pages_AI'
 import Settings        from './pages_Settings'
 import NotFound        from './pages_NotFound'
 
-// Auth pages — preserved at /auth/* but not in main user flow
+// ── Auth pages (preserved, not in main flow) ──────────────────
 import Login           from './pages_auth_Login'
 import JobseekerLogin  from './pages_auth_JobseekerLogin'
 import ResetConfirm    from './pages_auth_ResetConfirm'
@@ -62,32 +51,40 @@ import Setup           from './pages_auth_Setup'
 
 export const router = createHashRouter([
 
-  // ── Public landing page ─────────────────────────────────
-  // This is the root entry point. No auth. No redirect.
+  // ── Public landing page ─────────────────────────────────────
   {
     path: '/',
     element: <LandingPage />,
   },
 
-  // ── Standalone Jobseeker PWA (public, no shell) ─────────
+  // ── Jobseeker PWA — link-based (new) ────────────────────────
+  // Each jobseeker gets a unique link: /#/pwa/abc123xyz
+  // No auth, no session — identity proven by public link token
+  {
+    path: '/pwa/:publicLinkId',
+    element: <JobseekerPwa />,
+  },
+
+  // ── Jobseeker setup (coach creates new jobseeker + link) ─────
   {
     path: '/jobseeker-setup',
     element: <JobseekerSetup />,
   },
+
+  // ── Legacy PIN-based Jobseeker App (kept for compat) ────────
   {
     path: '/jobseeker-app',
     element: <JobseekerApp />,
   },
 
-  // ── Coach Dashboard (single layout wrapper + children) ──
-  // AppShell renders <Outlet /> — one layout, one Outlet, no nesting.
+  // ── Coach Dashboard (AppShell + Outlet) ─────────────────────
+  // One layout wrapper — single Outlet — no nesting conflicts
   {
     element: <AppShell />,
     children: [
-      // Dashboard is the default shell child
       { path: '/dashboard',                   element: <Dashboard /> },
 
-      // Employment support
+      // Employment support pages
       { path: '/jobseekers',                  element: <Jobseekers /> },
       { path: '/jobseekers/:jobseekerId',     element: <Jobseekers /> },
       { path: '/weekly-activity',             element: <WeeklyActivity /> },
@@ -101,23 +98,23 @@ export const router = createHashRouter([
       { path: '/ai',                          element: <AIPage /> },
       { path: '/support-risks',               element: <SupportRisks /> },
 
-      // Reporting
+      // Reports
       { path: '/reports',                     element: <Reports /> },
       { path: '/reports/:jobseekerId',        element: <Reports /> },
 
-      // System
+      // Settings
       { path: '/settings',                    element: <Settings /> },
       { path: '/settings/:section',           element: <Settings /> },
     ],
   },
 
-  // ── Auth routes (preserved, not in main flow) ──────────
+  // ── Auth routes (preserved, bypassed in normal flow) ────────
   { path: '/auth/setup',          element: <Setup /> },
   { path: '/auth/login',          element: <Login /> },
   { path: '/auth/jobseeker',      element: <JobseekerLogin /> },
   { path: '/auth/reset-confirm',  element: <ResetConfirm /> },
 
-  // ── 404 ────────────────────────────────────────────────
+  // ── 404 ────────────────────────────────────────────────────
   { path: '*', element: <NotFound /> },
 
 ])

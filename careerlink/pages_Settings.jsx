@@ -5,7 +5,7 @@
  * Powered by 4P3X Intelligent AI — Created by Kyzel Kreates
  * ============================================================
  */
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Icon from './components_ui_Icon'
 import { useConfigStore, useAuthStore, useAIStore } from './core_storage'
@@ -20,6 +20,7 @@ const TABS = [
   { key: 'demo',       label: 'Demo Mode',    icon: 'FlaskConical' },
   { key: 'ai',         label: 'AI Providers', icon: 'Brain' },
   { key: 'security',   label: 'Security',     icon: 'Shield' },
+  { key: 'backend',    label: 'Live Backend',  icon: 'Database' },
 ]
 
 function SettingRow({ label, sub, children }) {
@@ -294,12 +295,161 @@ function SecurityPanel() {
   )
 }
 
+// ── Supabase / Live Backend Panel ───────────────────────────
+function BackendPanel() {
+  const [status, setStatus] = React.useState(() => getCLSupabaseStatus())
+  const [testing, setTesting] = React.useState(false)
+  const [testResult, setTestResult] = React.useState(null)
+
+  const GREEN  = '#22c55e'
+  const RED    = '#ef4444'
+  const AMBER  = '#f59e0b'
+  const GOLD   = '#d4af37'
+
+  async function handleTest() {
+    setTesting(true)
+    setTestResult(null)
+    const result = await testCLSupabaseConnection()
+    setTestResult(result)
+    setStatus(getCLSupabaseStatus())
+    setTesting(false)
+  }
+
+  const isConfigured = status.configured
+  const statusColor  = isConfigured ? GREEN : AMBER
+
+  return (
+    <div>
+      <SectionHead label="Supabase Live Backend"/>
+
+      {/* Status */}
+      <div className="flex items-center justify-between py-4 border-b border-slate-800/40">
+        <div>
+          <div className="text-sm font-medium text-white">Connection Status</div>
+          <div className="text-xs text-slate-500 mt-0.5">
+            {isConfigured ? 'Supabase is configured and ready.' : 'Supabase not configured — running in local / demo mode.'}
+          </div>
+        </div>
+        <span className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg"
+          style={{ background: `${statusColor}10`, border: `1px solid ${statusColor}25`, color: statusColor }}>
+          <Icon name={isConfigured ? 'Wifi' : 'WifiOff'} size={11} />
+          {isConfigured ? 'Configured' : 'Not Configured'}
+        </span>
+      </div>
+
+      {/* URL */}
+      <div className="flex items-center justify-between py-4 border-b border-slate-800/40">
+        <div>
+          <div className="text-sm font-medium text-white">Supabase URL</div>
+          <div className="text-xs font-mono text-slate-500 mt-0.5">{status.urlMasked}</div>
+        </div>
+        <span className="text-[10px] text-slate-600">VITE_SUPABASE_URL</span>
+      </div>
+
+      {/* Anon key */}
+      <div className="flex items-center justify-between py-4 border-b border-slate-800/40">
+        <div>
+          <div className="text-sm font-medium text-white">Anon Key</div>
+          <div className="text-xs font-mono text-slate-500 mt-0.5">{status.keyMasked}</div>
+        </div>
+        <span className="text-[10px] text-slate-600">VITE_SUPABASE_ANON_KEY</span>
+      </div>
+
+      {/* Test connection */}
+      <div className="py-4 border-b border-slate-800/40">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-sm font-medium text-white">Test Connection</div>
+          <button onClick={handleTest} disabled={testing || !isConfigured}
+            className="px-4 py-2 rounded-lg text-xs font-bold transition-all disabled:opacity-40"
+            style={{ background: `${GOLD}12`, border: `1px solid ${GOLD}28`, color: GOLD }}>
+            {testing ? 'Testing…' : 'Test Now'}
+          </button>
+        </div>
+        {testResult && (
+          <div className="px-3 py-2 rounded-lg text-xs"
+            style={{
+              background: testResult.ok ? `${GREEN}10` : `${RED}10`,
+              border: `1px solid ${testResult.ok ? GREEN : RED}25`,
+              color: testResult.ok ? GREEN : RED,
+            }}>
+            {testResult.ok ? '✓ Connection successful' : `✗ ${testResult.error}`}
+          </div>
+        )}
+      </div>
+
+      {/* Security warnings */}
+      {status.warnings?.length > 0 && (
+        <div className="py-4 border-b border-slate-800/40">
+          <div className="text-sm font-medium mb-2" style={{ color: RED }}>Security Warnings</div>
+          {status.warnings.map((w, i) => (
+            <div key={i} className="text-xs px-3 py-2 rounded-lg mb-2"
+              style={{ background: `${RED}08`, border: `1px solid ${RED}20`, color: RED }}>
+              {w}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* How to configure */}
+      {!isConfigured && (
+        <div className="py-4">
+          <div className="text-sm font-medium text-white mb-2">How to Enable Live Mode</div>
+          <div className="text-xs text-slate-500 space-y-2 leading-relaxed">
+            <p>1. Create a <strong className="text-slate-400">Supabase</strong> project at supabase.com</p>
+            <p>2. Run <code className="text-amber-400 bg-slate-900/60 px-1 rounded">supabase_careerlinkos_schema.sql</code> in the SQL Editor</p>
+            <p>3. Add to your <code className="text-amber-400 bg-slate-900/60 px-1 rounded">.env</code> file:</p>
+            <div className="rounded-xl px-3 py-2 font-mono text-[11px]"
+              style={{ background: '#060b16', border: '1px solid #1a2035', color: '#7dd3fc' }}>
+              VITE_SUPABASE_URL=https://your-project.supabase.co<br/>
+              VITE_SUPABASE_ANON_KEY=eyJhbG...
+            </div>
+            <p>4. Turn off Demo Mode in <strong className="text-slate-400">Settings → Demo Mode</strong></p>
+            <p className="text-amber-500">⚠ Never add SUPABASE_SERVICE_ROLE_KEY to frontend .env files.</p>
+          </div>
+        </div>
+      )}
+
+      {/* Data source status */}
+      <SectionHead label="Data Source"/>
+      <div className="py-3 space-y-2">
+        {[
+          { label: 'Demo Mode ON',   desc: 'All data is local sample data. Supabase optional.',  active: !isConfigured },
+          { label: 'Local Mode',     desc: 'Real data stored in localStorage. No Supabase.',      active: false },
+          { label: 'Live Supabase',  desc: 'Real data synced to/from Supabase in real time.',      active: isConfigured },
+        ].map(s => (
+          <div key={s.label} className="flex items-center gap-3 px-3 py-2.5 rounded-lg"
+            style={{
+              background: s.active ? `${GOLD}07` : '#070d1a',
+              border: `1px solid ${s.active ? GOLD + '20' : '#1a2035'}`,
+            }}>
+            <div className="w-2 h-2 rounded-full flex-shrink-0"
+              style={{ background: s.active ? GOLD : '#334155' }} />
+            <div>
+              <div className="text-xs font-semibold" style={{ color: s.active ? GOLD : '#475569' }}>{s.label}</div>
+              <div className="text-[10px] text-slate-700">{s.desc}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* MVP security note */}
+      <div className="mt-4 rounded-xl px-4 py-3 text-[10px] leading-relaxed"
+        style={{ background: '#070d1a', border: '1px solid #1a2035', color: '#475569' }}>
+        <strong className="text-slate-500">MVP Access-Token Mode:</strong> CareerLink OS uses
+        public PWA link tokens for jobseeker writes. Before handling sensitive live personal data
+        at production scale, implement Supabase Auth (phone/email OTP) for stronger identity
+        verification. See the SQL schema RLS policy comments for details.
+      </div>
+    </div>
+  )
+}
+
 export default function Settings() {
   const { section } = useParams()
   const navigate    = useNavigate()
   const activeTab   = section || 'profile'
 
-  const panels = { profile: ProfilePanel, programme: ProgrammePanel, demo: DemoPanel, ai: AIPanel, security: SecurityPanel }
+  const panels = { profile: ProfilePanel, programme: ProgrammePanel, demo: DemoPanel, ai: AIPanel, security: SecurityPanel, backend: BackendPanel }
   const Panel  = panels[activeTab] || ProfilePanel
 
   return (
