@@ -1,63 +1,36 @@
 /**
  * ============================================================
- * APEX AI — Local Auth Service (No Supabase)
- * All credentials stored in localStorage.
- * First-run creates accounts; subsequent logins validate them.
+ * CareerLink OS™ — Local Auth Service
+ * All credentials stored in localStorage. No Supabase needed.
+ * Powered by 4P3X Intelligent AI — Created by Kyzel Kreates
  *
  * Storage keys:
- *   apex:accounts        — array of { id, username, email, password, role, fullName, avatar }
- *   apex:session         — { userId, role, email, username, fullName, expiresAt }
- *   apex:setup_complete  — 'true' once initial accounts are created
+ *   cl:accounts       — array of { id, username, email, password, role, fullName }
+ *   cl:session        — { userId, role, email, username, fullName, expiresAt }
+ *   cl:setup_complete — 'true' once initial account is created
  * ============================================================
  */
 
 import { useAuthStore } from './core_storage'
 
-// ─── Storage Keys ─────────────────────────────────────────────
 const KEYS = {
-  ACCOUNTS:       'apex:accounts',
-  SESSION:        'apex:session',
-  SETUP_COMPLETE: 'apex:setup_complete',
+  ACCOUNTS:       'cl:accounts',
+  SESSION:        'cl:session',
+  SETUP_COMPLETE: 'cl:setup_complete',
 }
 
-// ─── User Roles ───────────────────────────────────────────────
 export const USER_ROLES = {
-  SUPER_ADMIN:   'super_admin',
-  FLEET_ADMIN:   'fleet_admin',
-  FLEET_MANAGER: 'fleet_manager',
-  DISPATCHER:    'dispatcher',
-  COMPLIANCE:    'compliance',
-  DRIVER:        'driver',
-  VIEWER:        'viewer',
+  ADMIN:   'admin',
+  COACH:   'coach',
+  VIEWER:  'viewer',
 }
 
 export const ROLE_LABELS = {
-  super_admin:    'Super Admin',
-  fleet_admin:    'Fleet Admin',
-  fleet_manager:  'Fleet Manager',
-  dispatcher:     'Dispatcher',
-  compliance:     'Compliance Officer',
-  driver:         'Driver',
-  viewer:         'Viewer',
+  admin:  'Admin',
+  coach:  'Employment Coach',
+  viewer: 'Viewer',
 }
 
-export const ROLE_HIERARCHY = [
-  USER_ROLES.VIEWER,
-  USER_ROLES.DRIVER,
-  USER_ROLES.COMPLIANCE,
-  USER_ROLES.DISPATCHER,
-  USER_ROLES.FLEET_MANAGER,
-  USER_ROLES.FLEET_ADMIN,
-  USER_ROLES.SUPER_ADMIN,
-]
-
-export const hasPermission = (userRole, requiredRole) => {
-  const ui = ROLE_HIERARCHY.indexOf(userRole)
-  const ri = ROLE_HIERARCHY.indexOf(requiredRole)
-  return ui >= ri
-}
-
-// ─── Helpers ──────────────────────────────────────────────────
 const getAccounts = () => {
   try { return JSON.parse(localStorage.getItem(KEYS.ACCOUNTS) || '[]') }
   catch { return [] }
@@ -81,153 +54,80 @@ const getStoredSession = () => {
 }
 
 const saveSession = (session) => {
-  localStorage.setItem(KEYS.SESSION, JSON.stringify({
-    ...session,
-    expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000, // 30 days
-  }))
+  localStorage.setItem(KEYS.SESSION, JSON.stringify(session))
 }
 
-const sessionToUser = (session) => ({
-  id:       session.userId,
-  email:    session.email,
-  username: session.username,
-  user_metadata: {
-    role:      session.role,
-    full_name: session.fullName,
-    username:  session.username,
-  }
-})
+const genId = () => `usr_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
 
-// ─── Setup status ─────────────────────────────────────────────
-export const isSetupComplete = () =>
-  localStorage.getItem(KEYS.SETUP_COMPLETE) === 'true'
-
-export const getAccounts_public = () => getAccounts()
-
-// ─── Auth Service (same API as old Supabase authService) ──────
 export const authService = {
+  // ── Create a new account ──────────────────────────────────
+  createAccount: ({ username, email, password, role = 'coach', fullName = '' }) => {
+    const accounts = getAccounts()
+    const existing = accounts.find(a =>
+      a.username.toLowerCase() === username.toLowerCase() ||
+      (email && a.email?.toLowerCase() === email.toLowerCase())
+    )
+    if (existing) return { error: { message: 'Username or email already exists.' } }
 
-  /**
-   * First-run: create admin + driver accounts from setup form.
-   */
-  setupAccounts({ adminUsername, adminPassword, adminEmail,
-                  driverUsername, driverPassword, driverEmail }) {
-    const accounts = [
-      {
-        id:       'usr_admin_01',
-        username: adminUsername.trim(),
-        email:    (adminEmail || adminUsername).trim().toLowerCase(),
-        password: adminPassword,
-        role:     USER_ROLES.FLEET_ADMIN,
-        fullName: 'Fleet Administrator',
-      },
-      {
-        id:       'usr_driver_01',
-        username: driverUsername.trim(),
-        email:    (driverEmail || driverUsername).trim().toLowerCase(),
-        password: driverPassword,
-        role:     USER_ROLES.DRIVER,
-        fullName: 'Driver',
-      },
-    ]
-    saveAccounts(accounts)
-    localStorage.setItem(KEYS.SETUP_COMPLETE, 'true')
-    return { error: null }
+    const account = { id: genId(), username, email: email || '', password, role, fullName, createdAt: new Date().toISOString() }
+    saveAccounts([...accounts, account])
+    // Mark setup complete using the CareerLink key
+    localStorage.setItem('cl:setup_complete', 'true')
+    return { data: account, error: null }
   },
 
-  /**
-   * Sign in with username or email + password.
-   */
-  async signIn(emailOrUsername, password) {
+  // ── Sign in ───────────────────────────────────────────────
+  signIn: async (usernameOrEmail, password) => {
     const accounts = getAccounts()
-    const needle   = emailOrUsername.trim().toLowerCase()
-    const account  = accounts.find(
-      a => a.email.toLowerCase() === needle ||
-           a.username.toLowerCase() === needle
+    const account = accounts.find(a =>
+      (a.username.toLowerCase() === usernameOrEmail.toLowerCase() ||
+       a.email?.toLowerCase() === usernameOrEmail.toLowerCase()) &&
+      a.password === password
     )
-
-    if (!account) {
-      return { user: null, session: null, error: { message: 'Account not found.' } }
-    }
-    if (account.password !== password) {
-      return { user: null, session: null, error: { message: 'Incorrect password.' } }
-    }
+    if (!account) return { data: null, error: { message: 'Invalid username or password.' } }
 
     const session = {
-      userId:   account.id,
-      email:    account.email,
-      username: account.username,
-      role:     account.role,
-      fullName: account.fullName,
+      userId:    account.id,
+      username:  account.username,
+      email:     account.email,
+      role:      account.role,
+      full_name: account.fullName || account.username,
+      expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days
     }
     saveSession(session)
-
-    const user = sessionToUser(session)
     useAuthStore.getState().setSession(session)
-    useAuthStore.getState().setUser(user)
+    useAuthStore.getState().setUser({ ...account, full_name: account.fullName || account.username })
     useAuthStore.getState().setRole(account.role)
-
-    return { user, session, error: null }
+    return { data: session, error: null }
   },
 
-  /**
-   * Sign out.
-   */
-  async signOut() {
+  // ── Sign out ──────────────────────────────────────────────
+  signOut: async () => {
     localStorage.removeItem(KEYS.SESSION)
     useAuthStore.getState().clearAuth()
     return { error: null }
   },
 
-  /**
-   * Restore session from localStorage on app load.
-   */
-  async getSession() {
+  // ── Restore session on load ───────────────────────────────
+  getSession: () => {
     const session = getStoredSession()
     if (session) {
-      const user = sessionToUser(session)
       useAuthStore.getState().setSession(session)
-      useAuthStore.getState().setUser(user)
+      useAuthStore.getState().setUser({ full_name: session.full_name, username: session.username, email: session.email })
       useAuthStore.getState().setRole(session.role)
-      return { session, error: null }
     }
-    return { session: null, error: null }
+    return session
   },
 
-  async getUser() {
-    const session = getStoredSession()
-    if (!session) return { user: null, error: null }
-    return { user: sessionToUser(session), error: null }
-  },
+  // ── Check if setup is complete ────────────────────────────
+  isSetupComplete: () => localStorage.getItem('cl:setup_complete') === 'true',
 
-  /**
-   * Change password for current user.
-   */
-  async updatePassword(userId, currentPassword, newPassword) {
+  // ── Update account ────────────────────────────────────────
+  updateAccount: (userId, patch) => {
     const accounts = getAccounts()
-    const idx = accounts.findIndex(a => a.id === userId)
-    if (idx === -1) return { error: { message: 'Account not found.' } }
-    if (accounts[idx].password !== currentPassword) {
-      return { error: { message: 'Current password incorrect.' } }
-    }
-    accounts[idx].password = newPassword
-    saveAccounts(accounts)
+    const updated  = accounts.map(a => a.id === userId ? { ...a, ...patch } : a)
+    saveAccounts(updated)
     return { error: null }
-  },
-
-  async updateProfile(payload) {
-    return { user: null, error: null }
-  },
-
-  async resetPassword(email) {
-    return { error: { message: 'Password reset not available in local mode. Contact your administrator.' } }
-  },
-
-  /**
-   * No-op — local auth doesn't need a real listener.
-   */
-  onAuthStateChange(callback) {
-    return () => {}
   },
 }
 

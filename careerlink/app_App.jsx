@@ -1,26 +1,28 @@
 /**
  * ============================================================
- * APEX AI — Root App Component (Run 16 — System status wired)
- * /src/app/App.jsx
+ * CareerLink OS™ — Root App Component
+ * Job Search Compliance Dashboard + Jobseeker Activity PWA
+ * Powered by 4P3X Intelligent AI — Created by Kyzel Kreates
  * ============================================================
  */
-
 import { RouterProvider } from 'react-router-dom'
 import { router }         from './app_Router'
 import AuthProvider       from './providers_AuthProvider'
-import { useSystemStatus } from './hooks_useSystemStatus'
 import { useEffect }      from 'react'
-import { mountDashboardBridge } from './services_apex_apexBridge'
+import { useConfigStore, useDataStore } from './core_storage'
+import { jobseekerService } from './services_careerlink_jobseekerService'
+import { loadDemoData }   from './services_careerlink_demoData'
 
-// Inner wrapper — hooks must be inside a component tree
 function AppCore() {
-  useSystemStatus()
+  const config     = useConfigStore(s => s.config)
+  const dataStore  = useDataStore()
 
-  // ── Apex Command Center Bridge (additive — never breaks existing logic) ──
+  // On mount: if demo mode is enabled, ensure demo data is seeded
   useEffect(() => {
-    const cleanup = mountDashboardBridge()
-    return cleanup
-  }, [])
+    if (config.demoModeEnabled) {
+      loadDemoData(jobseekerService, dataStore)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return <RouterProvider router={router} />
 }

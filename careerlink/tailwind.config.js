@@ -1,6 +1,11 @@
 /** @type {import('tailwindcss').Config} */
 import defaultTheme from 'tailwindcss/defaultTheme'
 
+/**
+ * CareerLink OS™ — Tailwind Config
+ * 4P3X black/gold/silver/green/purple futuristic identity
+ * Powered by 4P3X Intelligent AI — Created by Kyzel Kreates
+ */
 export default {
   darkMode: 'class',
   content: ['./*.{js,jsx,ts,tsx}', './index.html'],
@@ -18,13 +23,15 @@ export default {
           card:    '#0d1426',
           border:  '#1a2035',
           muted:   '#2a3a5c',
-          overlay: 'rgba(26,32,53,0.85)',
-          cyan:    '#22d3ee',
-          blue:    '#3b82f6',
+          // CareerLink brand palette
+          gold:    '#d4af37',
+          silver:  '#c0c0c0',
           green:   '#34d399',
+          purple:  '#a78bfa',
+          cyan:    '#22d3ee',
           amber:   '#fbbf24',
           red:     '#f87171',
-          purple:  '#a78bfa',
+          blue:    '#3b82f6',
           text: {
             primary:   '#f1f5f9',
             secondary: '#94a3b8',
@@ -34,10 +41,11 @@ export default {
         },
       },
       boxShadow: {
-        'glow-cyan':  '0 0 20px rgba(34,211,238,0.15)',
-        'glow-green': '0 0 20px rgba(52,211,153,0.15)',
-        'glow-red':   '0 0 20px rgba(248,113,113,0.15)',
-        'glow-amber': '0 0 20px rgba(251,191,36,0.15)',
+        'glow-gold':   '0 0 20px rgba(212,175,55,0.15)',
+        'glow-green':  '0 0 20px rgba(52,211,153,0.15)',
+        'glow-red':    '0 0 20px rgba(248,113,113,0.15)',
+        'glow-purple': '0 0 20px rgba(167,139,250,0.15)',
+        'glow-cyan':   '0 0 20px rgba(34,211,238,0.15)',
       },
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4,0,0.6,1) infinite',

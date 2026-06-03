@@ -1,21 +1,17 @@
 /**
  * ============================================================
- * APEX AI — Auth Provider (Local Auth Mode)
- * Restores session from localStorage on app mount.
- * No Supabase dependency.
+ * CareerLink OS™ — Auth Provider
+ * Restores session on app load.
+ * Powered by 4P3X Intelligent AI — Created by Kyzel Kreates
  * ============================================================
  */
-
 import { useEffect } from 'react'
 import { authService } from './services_supabase_authService'
-import { useAuthStore } from './core_storage'
 
 export default function AuthProvider({ children }) {
-  const setLoading = useAuthStore(s => s.setLoading)
-
   useEffect(() => {
-    setLoading(true)
-    authService.getSession().finally(() => setLoading(false))
+    // Restore existing session silently on load
+    authService.getSession()
   }, [])
 
   return children
