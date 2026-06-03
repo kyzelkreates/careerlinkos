@@ -13,6 +13,7 @@ import { jobseekerService } from './services_careerlink_jobseekerService'
 import { loadDemoData, removeDemoData } from './services_careerlink_demoData'
 import { useDataStore } from './core_storage'
 import { AI_PROVIDERS, AI_MODES, AI_DISCLAIMER, DEFAULT_AI_CONFIG } from './services_ai_aiConfig'
+import { getCLSupabaseStatus, testCLSupabaseConnection } from './services_supabase_clSupabaseClient'
 
 const TABS = [
   { key: 'profile',    label: 'Profile',      icon: 'User' },
@@ -297,6 +298,7 @@ function SecurityPanel() {
 
 // ── Supabase / Live Backend Panel ───────────────────────────
 function BackendPanel() {
+  const navigate = useNavigate()
   const [status, setStatus] = React.useState(() => getCLSupabaseStatus())
   const [testing, setTesting] = React.useState(false)
   const [testResult, setTestResult] = React.useState(null)
@@ -439,6 +441,21 @@ function BackendPanel() {
         public PWA link tokens for jobseeker writes. Before handling sensitive live personal data
         at production scale, implement Supabase Auth (phone/email OTP) for stronger identity
         verification. See the SQL schema RLS policy comments for details.
+      </div>
+
+      {/* Full setup page link */}
+      <div className="mt-4">
+        <button
+          onClick={() => navigate('/supabase-setup')}
+          className="w-full flex items-center justify-between px-4 py-3.5 rounded-xl font-bold text-sm transition-all hover:brightness-110"
+          style={{ background: '#d4af3715', border: '1px solid #d4af3730', color: '#d4af37' }}
+        >
+          <div className="flex items-center gap-2">
+            <Icon name="ExternalLink" size={15} style={{ color: '#d4af37' }} />
+            Live Backend Setup — Full Guide
+          </div>
+          <Icon name="ChevronRight" size={14} style={{ color: '#d4af3780' }} />
+        </button>
       </div>
     </div>
   )
