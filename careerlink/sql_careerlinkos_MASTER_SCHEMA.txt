@@ -1,0 +1,762 @@
+-- ===========================================================================
+-- CareerLink OS™ — MASTER DATABASE SCHEMA
+-- Version: 1.1
+-- Date: 2026-06-06
+-- Platform: Supabase (PostgreSQL 15+)
+--
+-- Product: CareerLink OS™
+-- Powered by: 4P3X Intelligent AI™
+-- Created by: Kyzel Kreates™
+--
+-- ===========================================================================
+-- PURPOSE
+-- This is the single canonical schema file for CareerLink OS™.
+-- Run this ONCE in your Supabase project SQL Editor to set up the full
+-- database for both the Coach Dashboard and the Jobseeker PWA.
+--
+-- DO NOT run the legacy sql_1 through sql_6 files — those are from the
+-- previous AP3X Fleet OS product and are preserved for reference only.
+-- This file supersedes all of them for the CareerLink OS™ product.
+--
+-- ===========================================================================
+-- SECURITY RULES (READ BEFORE RUNNING)
+-- 1. NEVER put SUPABASE_SERVICE_ROLE_KEY in any frontend .env file.
+-- 2. Only VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY go in .env.
+-- 3. RLS is ENABLED on every table.
+-- 4. MVP auth strategy: public_link_id token pattern (jobseeker PWA).
+-- 5. Before going to production with real personal data, add Supabase Auth.
+-- ===========================================================================
+-- TABLES IN THIS SCHEMA
+--   1.  organisations             — employing/support organisations
+--   2.  coaches                   — case workers / employment coaches
+--   3.  jobseekers                — people being supported
+--   4.  pwa_access_links          — shareable secure tokens for the PWA
+--   5.  activity_logs             — daily job-search activity records
+--   6.  weekly_activity_totals    — materialised weekly 35h target progress
+--   7.  applications              — job application records
+--   8.  interviews                — interview records
+--   9.  check_ins                 — weekly check-in surveys
+--   10. evidence_records          — screenshots, notes, URLs, documents
+--   11. dashboard_events          — coach-visible activity feed
+--   12. ai_insight_snapshots      — 4P3X AI generated advisory snapshots
+--   13. support_flags             — risk/support flags raised by coach or AI
+--   14. tasks                     — coach action tasks linked to jobseekers
+-- ===========================================================================
+-- EXECUTION ORDER
+--   Step 1: Extensions
+--   Step 2: Tables
+--   Step 3: Indexes
+--   Step 4: Trigger function
+--   Step 5: Triggers
+--   Step 6: Enable RLS
+--   Step 7: RLS Policies
+--   Step 8: Realtime (manual in Supabase dashboard)
+--   Step 9: Verification queries
+--   Step 10: Optional demo seed (commented out)
+-- ===========================================================================
+
+-- ===========================================================================
+-- STEP 1 — EXTENSIONS
+-- ===========================================================================
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pgcrypto";
+
+
+-- ===========================================================================
+-- STEP 2 — TABLES
+-- ===========================================================================
+
+-- ---------------------------------------------------------------------------
+-- 2.1  organisations
+-- An organisation is a provider (e.g. "Restart Scheme — Manchester") that
+-- employs coaches and manages a caseload of jobseekers.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS organisations (
+  id               UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name             TEXT        NOT NULL,
+  programme        TEXT,                         -- "Restart Scheme", "JFG", "UKSPF", etc.
+  contact_email    TEXT,
+  settings         JSONB       DEFAULT '{}'::jsonb,
+  created_at       TIMESTAMPTZ DEFAULT now(),
+  updated_at       TIMESTAMPTZ DEFAULT now()
+);
+
+-- ---------------------------------------------------------------------------
+-- 2.2  coaches
+-- Employment coaches / case workers who manage jobseekers.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS coaches (
+  id               UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  organisation_id  UUID        REFERENCES organisations(id) ON DELETE SET NULL,
+  full_name        TEXT        NOT NULL,
+  email            TEXT        UNIQUE,
+  role             TEXT        DEFAULT 'coach'
+                               CHECK (role IN ('coach','senior_coach','admin')),
+  is_active        BOOLEAN     DEFAULT TRUE,
+  created_at       TIMESTAMPTZ DEFAULT now(),
+  updated_at       TIMESTAMPTZ DEFAULT now()
+);
+
+-- ---------------------------------------------------------------------------
+-- 2.3  jobseekers
+-- The central record for each person receiving employment support.
+-- pwa_link_id references pwa_access_links.public_link_id — this is the
+-- shareable token that unlocks the Jobseeker PWA.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS jobseekers (
+  id                   UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  organisation_id      UUID        REFERENCES organisations(id) ON DELETE SET NULL,
+  coach_id             UUID        REFERENCES coaches(id) ON DELETE SET NULL,
+  display_name         TEXT        NOT NULL,
+  email                TEXT,
+  phone                TEXT,
+  status               TEXT        DEFAULT 'active'
+                                   CHECK (status IN (
+                                     'active','inactive','at_risk','on_hold',
+                                     'completed','placed'
+                                   )),
+  programme            TEXT,
+  weekly_target_hours  INTEGER     DEFAULT 35,
+  risk_level           TEXT        DEFAULT 'low'
+                                   CHECK (risk_level IN ('low','medium','high','critical')),
+  notes                TEXT,
+  pwa_link_id          TEXT        UNIQUE,       -- mirrors pwa_access_links.public_link_id
+  last_active_at       TIMESTAMPTZ,
+  created_at           TIMESTAMPTZ DEFAULT now(),
+  updated_at           TIMESTAMPTZ DEFAULT now()
+);
+
+-- ---------------------------------------------------------------------------
+-- 2.4  pwa_access_links
+-- Each jobseeker gets one (or more) shareable PWA access link.
+-- public_link_id is a non-guessable token (UUID or nanoid).
+-- The coach copies the URL: /pwa/<public_link_id> and shares it.
+-- The PWA validates this token on every submission.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS pwa_access_links (
+  id              UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  public_link_id  TEXT        UNIQUE NOT NULL,   -- safe to share
+  jobseeker_id    UUID        REFERENCES jobseekers(id) ON DELETE CASCADE,
+  is_active       BOOLEAN     DEFAULT TRUE,
+  expires_at      TIMESTAMPTZ,                   -- NULL = never expires (MVP)
+  created_at      TIMESTAMPTZ DEFAULT now(),
+  updated_at      TIMESTAMPTZ DEFAULT now()
+);
+
+-- ---------------------------------------------------------------------------
+-- 2.5  activity_logs
+-- Daily job-search activity records submitted by jobseekers via the PWA.
+-- Each row = one activity session (e.g. "CV writing — 2h").
+-- duration_minutes drives the 35h/week target tracking.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS activity_logs (
+  id               UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  jobseeker_id     UUID        NOT NULL REFERENCES jobseekers(id) ON DELETE CASCADE,
+  pwa_link_id      TEXT,                         -- access token used at submission
+  date             DATE        NOT NULL,
+  start_time       TEXT,
+  end_time         TEXT,
+  duration_minutes INTEGER     DEFAULT 0,
+  activity_type    TEXT        NOT NULL,          -- "CV Writing", "Job Search", etc.
+  description      TEXT,
+  notes            TEXT,
+  evidence_ids     UUID[],                        -- FK refs to evidence_records.id
+  created_at       TIMESTAMPTZ DEFAULT now(),
+  updated_at       TIMESTAMPTZ DEFAULT now()
+);
+
+-- ---------------------------------------------------------------------------
+-- 2.6  weekly_activity_totals
+-- Materialised weekly summary per jobseeker.
+-- Upserted by the PWA sync service or a Supabase trigger.
+-- week_start is always a Monday (ISO week).
+-- completion_pct = (total_minutes / target_minutes) * 100
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS weekly_activity_totals (
+  id                   UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  jobseeker_id         UUID        NOT NULL REFERENCES jobseekers(id) ON DELETE CASCADE,
+  week_start           DATE        NOT NULL,      -- always a Monday
+  total_minutes        INTEGER     DEFAULT 0,
+  target_minutes       INTEGER     DEFAULT 2100,  -- 35h × 60
+  completion_pct       NUMERIC(5,2) DEFAULT 0,
+  activity_count       INTEGER     DEFAULT 0,
+  created_at           TIMESTAMPTZ DEFAULT now(),
+  updated_at           TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (jobseeker_id, week_start)
+);
+
+-- ---------------------------------------------------------------------------
+-- 2.7  applications
+-- Job application records submitted by jobseekers.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS applications (
+  id            UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  jobseeker_id  UUID        NOT NULL REFERENCES jobseekers(id) ON DELETE CASCADE,
+  pwa_link_id   TEXT,
+  employer      TEXT,
+  role_title    TEXT,
+  source        TEXT,                             -- "Indeed", "LinkedIn", "Direct", etc.
+  date_applied  DATE,
+  status        TEXT        DEFAULT 'Applied'
+                            CHECK (status IN (
+                              'Applied','Shortlisted','Interview','Offered',
+                              'Rejected','Withdrawn','Pending'
+                            )),
+  evidence_ids  UUID[],
+  notes         TEXT,
+  created_at    TIMESTAMPTZ DEFAULT now(),
+  updated_at    TIMESTAMPTZ DEFAULT now()
+);
+
+-- ---------------------------------------------------------------------------
+-- 2.8  interviews
+-- Interview records logged by jobseekers.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS interviews (
+  id                UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  jobseeker_id      UUID        NOT NULL REFERENCES jobseekers(id) ON DELETE CASCADE,
+  pwa_link_id       TEXT,
+  employer          TEXT,
+  role_title        TEXT,
+  interview_date    TIMESTAMPTZ,
+  location_or_link  TEXT,
+  preparation_tasks TEXT,
+  outcome           TEXT        CHECK (outcome IN (
+                                  'Pending','Passed','Failed','Offered',
+                                  'Withdrawn','No Show',NULL
+                                )),
+  notes             TEXT,
+  created_at        TIMESTAMPTZ DEFAULT now(),
+  updated_at        TIMESTAMPTZ DEFAULT now()
+);
+
+-- ---------------------------------------------------------------------------
+-- 2.9  check_ins
+-- Weekly check-in survey answers submitted by jobseekers via the PWA.
+-- barrier_flags captures specific barriers declared by the jobseeker.
+-- confidence_score: 1 (very low) — 10 (very high).
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS check_ins (
+  id               UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  jobseeker_id     UUID        NOT NULL REFERENCES jobseekers(id) ON DELETE CASCADE,
+  pwa_link_id      TEXT,
+  check_in_date    DATE        NOT NULL,
+  answers          JSONB       DEFAULT '{}'::jsonb,
+  hours_reported   NUMERIC(5,2) DEFAULT 0,
+  support_needed   BOOLEAN     DEFAULT FALSE,
+  barrier_flags    TEXT[],                        -- e.g. ["transport","childcare","health"]
+  confidence_score INTEGER     CHECK (confidence_score BETWEEN 1 AND 10),
+  notes            TEXT,
+  created_at       TIMESTAMPTZ DEFAULT now(),
+  updated_at       TIMESTAMPTZ DEFAULT now()
+);
+
+-- ---------------------------------------------------------------------------
+-- 2.10  evidence_records
+-- Screenshots, notes, URLs, and document records uploaded by jobseekers.
+-- file_url is a PUBLIC CDN URL only — no service role keys here.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS evidence_records (
+  id                 UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  jobseeker_id       UUID        NOT NULL REFERENCES jobseekers(id) ON DELETE CASCADE,
+  pwa_link_id        TEXT,
+  title              TEXT        NOT NULL,
+  evidence_type      TEXT        CHECK (evidence_type IN (
+                                   'screenshot','note','url','document','photo',NULL
+                                 )),
+  linked_record_type TEXT,                        -- "activity_log","application","interview"
+  linked_record_id   UUID,
+  evidence_date      DATE,
+  notes              TEXT,
+  file_url           TEXT,                        -- public URL only (no secrets)
+  created_at         TIMESTAMPTZ DEFAULT now(),
+  updated_at         TIMESTAMPTZ DEFAULT now()
+);
+
+-- ---------------------------------------------------------------------------
+-- 2.11  dashboard_events
+-- Coach-visible activity feed. Generated from PWA submissions and AI events.
+-- event_type examples: "activity_logged","application_added","check_in_complete",
+--   "risk_flag_raised","ai_insight_generated","interview_scheduled"
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS dashboard_events (
+  id              UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  jobseeker_id    UUID        REFERENCES jobseekers(id) ON DELETE CASCADE,
+  organisation_id UUID        REFERENCES organisations(id) ON DELETE SET NULL,
+  event_type      TEXT        NOT NULL,
+  summary         TEXT,
+  payload         JSONB       DEFAULT '{}'::jsonb,
+  created_at      TIMESTAMPTZ DEFAULT now()
+);
+
+-- ---------------------------------------------------------------------------
+-- 2.12  ai_insight_snapshots
+-- Advisory snapshots generated by 4P3X Intelligent AI assistants.
+-- human_review_required is always TRUE by default — never auto-action AI output.
+-- assistant_id values: 'coachDashboardGuide','coachDataInsight',
+--   'jobseekerAssistant','pwaSupportAdvisor'
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS ai_insight_snapshots (
+  id                    UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  jobseeker_id          UUID        REFERENCES jobseekers(id) ON DELETE CASCADE,
+  assistant_id          TEXT,
+  insight_type          TEXT,
+  suggestion            TEXT,
+  reason                TEXT,
+  data_used             JSONB       DEFAULT '{}'::jsonb,
+  confidence            NUMERIC(3,2) CHECK (confidence BETWEEN 0 AND 1),
+  human_review_required BOOLEAN     DEFAULT TRUE,
+  created_at            TIMESTAMPTZ DEFAULT now()
+);
+
+-- ---------------------------------------------------------------------------
+-- 2.13  support_flags
+-- Risk and support flags raised by coaches or the AI risk engine.
+-- status: open → in_review → resolved | dismissed
+-- severity: low | medium | high | critical
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS support_flags (
+  id              UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  jobseeker_id    UUID        NOT NULL REFERENCES jobseekers(id) ON DELETE CASCADE,
+  coach_id        UUID        REFERENCES coaches(id) ON DELETE SET NULL,
+  flag_type       TEXT        NOT NULL,           -- "barrier","risk","health","engagement"
+  severity        TEXT        DEFAULT 'medium'
+                              CHECK (severity IN ('low','medium','high','critical')),
+  status          TEXT        DEFAULT 'open'
+                              CHECK (status IN ('open','in_review','resolved','dismissed')),
+  description     TEXT,
+  resolution_notes TEXT,
+  raised_by       TEXT        DEFAULT 'coach',    -- "coach" | "ai_engine"
+  resolved_at     TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ DEFAULT now(),
+  updated_at      TIMESTAMPTZ DEFAULT now()
+);
+
+-- ---------------------------------------------------------------------------
+-- 2.14  tasks
+-- Action tasks assigned to coaches. Linked to jobseekers.
+-- status: pending → in_progress → completed | cancelled
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS tasks (
+  id              UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+  jobseeker_id    UUID        REFERENCES jobseekers(id) ON DELETE CASCADE,
+  coach_id        UUID        REFERENCES coaches(id) ON DELETE SET NULL,
+  organisation_id UUID        REFERENCES organisations(id) ON DELETE SET NULL,
+  title           TEXT        NOT NULL,
+  description     TEXT,
+  status          TEXT        DEFAULT 'pending'
+                              CHECK (status IN (
+                                'pending','in_progress','completed','cancelled'
+                              )),
+  priority        TEXT        DEFAULT 'normal'
+                              CHECK (priority IN ('low','normal','high','urgent')),
+  due_date        DATE,
+  completed_at    TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ DEFAULT now(),
+  updated_at      TIMESTAMPTZ DEFAULT now()
+);
+
+
+-- ===========================================================================
+-- STEP 3 — INDEXES
+-- ===========================================================================
+CREATE INDEX IF NOT EXISTS idx_jobseekers_org        ON jobseekers(organisation_id);
+CREATE INDEX IF NOT EXISTS idx_jobseekers_coach       ON jobseekers(coach_id);
+CREATE INDEX IF NOT EXISTS idx_jobseekers_status      ON jobseekers(status);
+CREATE INDEX IF NOT EXISTS idx_jobseekers_risk         ON jobseekers(risk_level);
+CREATE INDEX IF NOT EXISTS idx_pwa_links_link_id       ON pwa_access_links(public_link_id);
+CREATE INDEX IF NOT EXISTS idx_pwa_links_js            ON pwa_access_links(jobseeker_id);
+CREATE INDEX IF NOT EXISTS idx_activity_js_date        ON activity_logs(jobseeker_id, date DESC);
+CREATE INDEX IF NOT EXISTS idx_activity_date           ON activity_logs(date DESC);
+CREATE INDEX IF NOT EXISTS idx_activity_type           ON activity_logs(activity_type);
+CREATE INDEX IF NOT EXISTS idx_weekly_js_week          ON weekly_activity_totals(jobseeker_id, week_start DESC);
+CREATE INDEX IF NOT EXISTS idx_apps_js                 ON applications(jobseeker_id, date_applied DESC);
+CREATE INDEX IF NOT EXISTS idx_apps_status             ON applications(status);
+CREATE INDEX IF NOT EXISTS idx_ivs_js                  ON interviews(jobseeker_id, interview_date DESC);
+CREATE INDEX IF NOT EXISTS idx_ci_js_date              ON check_ins(jobseeker_id, check_in_date DESC);
+CREATE INDEX IF NOT EXISTS idx_ev_js                   ON evidence_records(jobseeker_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_events_js               ON dashboard_events(jobseeker_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_events_org              ON dashboard_events(organisation_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ai_js                   ON ai_insight_snapshots(jobseeker_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_flags_js                ON support_flags(jobseeker_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_flags_status            ON support_flags(status, severity);
+CREATE INDEX IF NOT EXISTS idx_tasks_js                ON tasks(jobseeker_id, due_date ASC);
+CREATE INDEX IF NOT EXISTS idx_tasks_coach             ON tasks(coach_id, status);
+CREATE INDEX IF NOT EXISTS idx_tasks_status            ON tasks(status, priority);
+
+
+-- ===========================================================================
+-- STEP 4 — TRIGGER FUNCTION
+-- ===========================================================================
+CREATE OR REPLACE FUNCTION trigger_set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+
+-- ===========================================================================
+-- STEP 5 — TRIGGERS (auto updated_at)
+-- ===========================================================================
+DROP TRIGGER IF EXISTS trg_organisations_updated_at        ON organisations;
+DROP TRIGGER IF EXISTS trg_coaches_updated_at              ON coaches;
+DROP TRIGGER IF EXISTS trg_jobseekers_updated_at           ON jobseekers;
+DROP TRIGGER IF EXISTS trg_pwa_access_links_updated_at     ON pwa_access_links;
+DROP TRIGGER IF EXISTS trg_activity_logs_updated_at        ON activity_logs;
+DROP TRIGGER IF EXISTS trg_weekly_totals_updated_at        ON weekly_activity_totals;
+DROP TRIGGER IF EXISTS trg_applications_updated_at         ON applications;
+DROP TRIGGER IF EXISTS trg_interviews_updated_at           ON interviews;
+DROP TRIGGER IF EXISTS trg_check_ins_updated_at            ON check_ins;
+DROP TRIGGER IF EXISTS trg_evidence_records_updated_at     ON evidence_records;
+DROP TRIGGER IF EXISTS trg_support_flags_updated_at        ON support_flags;
+DROP TRIGGER IF EXISTS trg_tasks_updated_at                ON tasks;
+
+CREATE TRIGGER trg_organisations_updated_at
+  BEFORE UPDATE ON organisations
+  FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+
+CREATE TRIGGER trg_coaches_updated_at
+  BEFORE UPDATE ON coaches
+  FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+
+CREATE TRIGGER trg_jobseekers_updated_at
+  BEFORE UPDATE ON jobseekers
+  FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+
+CREATE TRIGGER trg_pwa_access_links_updated_at
+  BEFORE UPDATE ON pwa_access_links
+  FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+
+CREATE TRIGGER trg_activity_logs_updated_at
+  BEFORE UPDATE ON activity_logs
+  FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+
+CREATE TRIGGER trg_weekly_totals_updated_at
+  BEFORE UPDATE ON weekly_activity_totals
+  FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+
+CREATE TRIGGER trg_applications_updated_at
+  BEFORE UPDATE ON applications
+  FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+
+CREATE TRIGGER trg_interviews_updated_at
+  BEFORE UPDATE ON interviews
+  FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+
+CREATE TRIGGER trg_check_ins_updated_at
+  BEFORE UPDATE ON check_ins
+  FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+
+CREATE TRIGGER trg_evidence_records_updated_at
+  BEFORE UPDATE ON evidence_records
+  FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+
+CREATE TRIGGER trg_support_flags_updated_at
+  BEFORE UPDATE ON support_flags
+  FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+
+CREATE TRIGGER trg_tasks_updated_at
+  BEFORE UPDATE ON tasks
+  FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+
+
+-- ===========================================================================
+-- STEP 6 — ENABLE ROW LEVEL SECURITY
+-- ===========================================================================
+ALTER TABLE organisations         ENABLE ROW LEVEL SECURITY;
+ALTER TABLE coaches                ENABLE ROW LEVEL SECURITY;
+ALTER TABLE jobseekers             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pwa_access_links       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE activity_logs          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE weekly_activity_totals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE applications           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE interviews             ENABLE ROW LEVEL SECURITY;
+ALTER TABLE check_ins              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE evidence_records       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE dashboard_events       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_insight_snapshots   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE support_flags          ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tasks                  ENABLE ROW LEVEL SECURITY;
+
+
+-- ===========================================================================
+-- STEP 7 — RLS POLICIES
+-- MVP access-token pattern:
+--   Anon key can SELECT all records (coach dashboard reads without auth).
+--   Anon key can INSERT jobseeker records only if a valid active pwa_link_id
+--   is present and matches an active pwa_access_links row.
+--   All other write operations require service role (backend only).
+--
+-- NOTE: Before handling real personal data at production scale, implement
+--   Supabase Auth and replace these open SELECT policies with scoped ones.
+-- ===========================================================================
+
+-- organisations — read only for anon
+DROP POLICY IF EXISTS "anon_read_organisations" ON organisations;
+CREATE POLICY "anon_read_organisations"
+  ON organisations FOR SELECT TO anon USING (TRUE);
+
+-- coaches — read only for anon
+DROP POLICY IF EXISTS "anon_read_coaches" ON coaches;
+CREATE POLICY "anon_read_coaches"
+  ON coaches FOR SELECT TO anon USING (TRUE);
+
+-- jobseekers — read all; insert via valid PWA link
+DROP POLICY IF EXISTS "anon_read_jobseekers" ON jobseekers;
+DROP POLICY IF EXISTS "anon_insert_jobseeker_via_link" ON jobseekers;
+CREATE POLICY "anon_read_jobseekers"
+  ON jobseekers FOR SELECT TO anon USING (TRUE);
+CREATE POLICY "anon_insert_jobseeker_via_link"
+  ON jobseekers FOR INSERT TO anon
+  WITH CHECK (
+    pwa_link_id IS NOT NULL AND
+    EXISTS (
+      SELECT 1 FROM pwa_access_links pal
+      WHERE pal.public_link_id = jobseekers.pwa_link_id
+        AND pal.is_active = TRUE
+        AND (pal.expires_at IS NULL OR pal.expires_at > now())
+    )
+  );
+
+-- pwa_access_links — SELECT active links (PWA needs to verify token)
+DROP POLICY IF EXISTS "anon_read_active_pwa_links" ON pwa_access_links;
+CREATE POLICY "anon_read_active_pwa_links"
+  ON pwa_access_links FOR SELECT TO anon
+  USING (is_active = TRUE);
+
+-- activity_logs — read all; insert via valid link
+DROP POLICY IF EXISTS "anon_read_activity_logs" ON activity_logs;
+DROP POLICY IF EXISTS "anon_insert_activity_log_via_valid_link" ON activity_logs;
+CREATE POLICY "anon_read_activity_logs"
+  ON activity_logs FOR SELECT TO anon USING (TRUE);
+CREATE POLICY "anon_insert_activity_log_via_valid_link"
+  ON activity_logs FOR INSERT TO anon
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM pwa_access_links pal
+      WHERE pal.public_link_id = activity_logs.pwa_link_id
+        AND pal.is_active = TRUE
+        AND (pal.expires_at IS NULL OR pal.expires_at > now())
+    )
+  );
+
+-- weekly_activity_totals — read only
+DROP POLICY IF EXISTS "anon_read_weekly_totals" ON weekly_activity_totals;
+CREATE POLICY "anon_read_weekly_totals"
+  ON weekly_activity_totals FOR SELECT TO anon USING (TRUE);
+
+-- applications — read all; insert via valid link
+DROP POLICY IF EXISTS "anon_read_applications" ON applications;
+DROP POLICY IF EXISTS "anon_insert_application_via_valid_link" ON applications;
+CREATE POLICY "anon_read_applications"
+  ON applications FOR SELECT TO anon USING (TRUE);
+CREATE POLICY "anon_insert_application_via_valid_link"
+  ON applications FOR INSERT TO anon
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM pwa_access_links pal
+      WHERE pal.public_link_id = applications.pwa_link_id
+        AND pal.is_active = TRUE
+        AND (pal.expires_at IS NULL OR pal.expires_at > now())
+    )
+  );
+
+-- interviews — read all; insert via valid link
+DROP POLICY IF EXISTS "anon_read_interviews" ON interviews;
+DROP POLICY IF EXISTS "anon_insert_interview_via_valid_link" ON interviews;
+CREATE POLICY "anon_read_interviews"
+  ON interviews FOR SELECT TO anon USING (TRUE);
+CREATE POLICY "anon_insert_interview_via_valid_link"
+  ON interviews FOR INSERT TO anon
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM pwa_access_links pal
+      WHERE pal.public_link_id = interviews.pwa_link_id
+        AND pal.is_active = TRUE
+        AND (pal.expires_at IS NULL OR pal.expires_at > now())
+    )
+  );
+
+-- check_ins — read all; insert via valid link
+DROP POLICY IF EXISTS "anon_read_check_ins" ON check_ins;
+DROP POLICY IF EXISTS "anon_insert_check_in_via_valid_link" ON check_ins;
+CREATE POLICY "anon_read_check_ins"
+  ON check_ins FOR SELECT TO anon USING (TRUE);
+CREATE POLICY "anon_insert_check_in_via_valid_link"
+  ON check_ins FOR INSERT TO anon
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM pwa_access_links pal
+      WHERE pal.public_link_id = check_ins.pwa_link_id
+        AND pal.is_active = TRUE
+        AND (pal.expires_at IS NULL OR pal.expires_at > now())
+    )
+  );
+
+-- evidence_records — read all; insert via valid link
+DROP POLICY IF EXISTS "anon_read_evidence" ON evidence_records;
+DROP POLICY IF EXISTS "anon_insert_evidence_via_valid_link" ON evidence_records;
+CREATE POLICY "anon_read_evidence"
+  ON evidence_records FOR SELECT TO anon USING (TRUE);
+CREATE POLICY "anon_insert_evidence_via_valid_link"
+  ON evidence_records FOR INSERT TO anon
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM pwa_access_links pal
+      WHERE pal.public_link_id = evidence_records.pwa_link_id
+        AND pal.is_active = TRUE
+        AND (pal.expires_at IS NULL OR pal.expires_at > now())
+    )
+  );
+
+-- dashboard_events — read only for anon
+DROP POLICY IF EXISTS "anon_read_dashboard_events" ON dashboard_events;
+CREATE POLICY "anon_read_dashboard_events"
+  ON dashboard_events FOR SELECT TO anon USING (TRUE);
+
+-- ai_insight_snapshots — read only
+DROP POLICY IF EXISTS "anon_read_ai_insights" ON ai_insight_snapshots;
+CREATE POLICY "anon_read_ai_insights"
+  ON ai_insight_snapshots FOR SELECT TO anon USING (TRUE);
+
+-- support_flags — read all; insert via coach (service role for production)
+DROP POLICY IF EXISTS "anon_read_support_flags" ON support_flags;
+CREATE POLICY "anon_read_support_flags"
+  ON support_flags FOR SELECT TO anon USING (TRUE);
+
+-- tasks — read all; insert by coach (service role for production)
+DROP POLICY IF EXISTS "anon_read_tasks" ON tasks;
+CREATE POLICY "anon_read_tasks"
+  ON tasks FOR SELECT TO anon USING (TRUE);
+
+
+-- ===========================================================================
+-- STEP 8 — REALTIME
+-- Enable realtime for the following tables in the Supabase Dashboard:
+--   Database → Replication → Realtime → Add tables:
+--   - activity_logs
+--   - weekly_activity_totals
+--   - dashboard_events
+--   - check_ins
+--   - support_flags
+--
+-- Or run via SQL (Supabase-specific):
+-- ===========================================================================
+-- ALTER PUBLICATION supabase_realtime ADD TABLE activity_logs;
+-- ALTER PUBLICATION supabase_realtime ADD TABLE weekly_activity_totals;
+-- ALTER PUBLICATION supabase_realtime ADD TABLE dashboard_events;
+-- ALTER PUBLICATION supabase_realtime ADD TABLE check_ins;
+-- ALTER PUBLICATION supabase_realtime ADD TABLE support_flags;
+
+
+-- ===========================================================================
+-- STEP 9 — VERIFICATION QUERIES
+-- Run these after executing the schema to confirm setup.
+-- ===========================================================================
+/*
+-- Table + row counts
+SELECT
+  tablename AS table,
+  (SELECT COUNT(*) FROM information_schema.columns
+   WHERE table_name = t.tablename AND table_schema = 'public') AS columns
+FROM (
+  VALUES
+    ('organisations'),('coaches'),('jobseekers'),('pwa_access_links'),
+    ('activity_logs'),('weekly_activity_totals'),('applications'),
+    ('interviews'),('check_ins'),('evidence_records'),
+    ('dashboard_events'),('ai_insight_snapshots'),('support_flags'),('tasks')
+) t(tablename)
+ORDER BY tablename;
+
+-- Verify RLS is enabled on every table
+SELECT tablename, rowsecurity
+FROM pg_tables
+WHERE schemaname = 'public'
+  AND tablename IN (
+    'organisations','coaches','jobseekers','pwa_access_links',
+    'activity_logs','weekly_activity_totals','applications',
+    'interviews','check_ins','evidence_records',
+    'dashboard_events','ai_insight_snapshots','support_flags','tasks'
+  )
+ORDER BY tablename;
+
+-- Verify indexes were created
+SELECT indexname, tablename
+FROM pg_indexes
+WHERE schemaname = 'public'
+ORDER BY tablename, indexname;
+
+-- Verify triggers are attached
+SELECT trigger_name, event_object_table
+FROM information_schema.triggers
+WHERE trigger_schema = 'public'
+ORDER BY event_object_table, trigger_name;
+*/
+
+
+-- ===========================================================================
+-- STEP 10 — OPTIONAL DEMO SEED DATA
+-- Uncomment to insert demo records for testing.
+-- All rows are tagged and can be deleted with:
+--   DELETE FROM organisations WHERE id = '00000000-0000-0000-0000-000000000001';
+--   (cascades to all linked records)
+-- ===========================================================================
+/*
+-- Demo organisation
+INSERT INTO organisations (id, name, programme, contact_email)
+VALUES (
+  '00000000-0000-0000-0000-000000000001',
+  'CareerLink Demo Organisation',
+  'Restart Scheme',
+  'demo@careerlinkos.example'
+) ON CONFLICT (id) DO NOTHING;
+
+-- Demo coach
+INSERT INTO coaches (id, organisation_id, full_name, email, role)
+VALUES (
+  '00000000-0000-0000-0000-000000000010',
+  '00000000-0000-0000-0000-000000000001',
+  'Demo Coach',
+  'coach@careerlinkos.example',
+  'coach'
+) ON CONFLICT (id) DO NOTHING;
+
+-- Demo jobseeker 1
+INSERT INTO jobseekers (id, organisation_id, coach_id, display_name, email, status, programme, weekly_target_hours, risk_level, pwa_link_id)
+VALUES (
+  '00000000-0000-0000-0000-000000000100',
+  '00000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000010',
+  'Jordan Mitchell (Demo)',
+  'jordan@demo.careerlinkos',
+  'active', 'Restart Scheme', 35, 'low',
+  'demo-jordan-001'
+) ON CONFLICT (id) DO NOTHING;
+
+-- Demo jobseeker 2
+INSERT INTO jobseekers (id, organisation_id, coach_id, display_name, email, status, programme, weekly_target_hours, risk_level, pwa_link_id)
+VALUES (
+  '00000000-0000-0000-0000-000000000101',
+  '00000000-0000-0000-0000-000000000001',
+  '00000000-0000-0000-0000-000000000010',
+  'Sam Osei (Demo)',
+  'sam@demo.careerlinkos',
+  'at_risk', 'Restart Scheme', 35, 'high',
+  'demo-sam-001'
+) ON CONFLICT (id) DO NOTHING;
+
+-- Demo PWA access links
+INSERT INTO pwa_access_links (public_link_id, jobseeker_id, is_active)
+VALUES
+  ('demo-jordan-001', '00000000-0000-0000-0000-000000000100', TRUE),
+  ('demo-sam-001',    '00000000-0000-0000-0000-000000000101', TRUE)
+ON CONFLICT (public_link_id) DO NOTHING;
+*/
+
+-- ===========================================================================
+-- END OF MASTER SCHEMA
+-- CareerLink OS™ v1.1 — Powered by 4P3X Intelligent AI™
+-- Created by Kyzel Kreates™
+-- ===========================================================================

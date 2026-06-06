@@ -250,8 +250,8 @@ export default function LandingPage() {
 
         {/* Hero CTA buttons */}
         <div style={{
-          display: 'flex', gap: 16, justifyContent: 'center',
-          flexWrap: 'wrap', padding: '0 8px', gap: 10,
+          display: 'flex', gap: 12, justifyContent: 'center',
+          flexWrap: 'wrap', padding: '0 8px',
         }}>
           <CTAButton
             label="Open Coach Dashboard"
