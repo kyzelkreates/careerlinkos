@@ -44,7 +44,7 @@ function LiveClock() {
   }, [])
   return (
     <div className="text-right flex-shrink-0">
-      <div className="font-mono text-xl md:text-2xl font-bold text-white tabular-nums tracking-tight">
+      <div className="font-mono text-lg sm:text-xl md:text-2xl font-bold text-white tabular-nums tracking-tight whitespace-nowrap">
         {t.toLocaleTimeString('en-GB', { hour12: false })}
       </div>
       <div className="text-[11px] text-slate-500 mt-0.5">
@@ -101,10 +101,18 @@ function KpiCard({ label, value, sub, icon, color, pulse, onClick }) {
           <Icon name={icon} size={14} style={{ color }} />
         </div>
       </div>
-      <div className="font-mono text-3xl font-bold tabular-nums" style={{ color }}>
+      <div
+        className="font-mono text-2xl sm:text-3xl font-bold tabular-nums leading-none mt-0.5"
+        style={{ color, overflowWrap: 'anywhere', wordBreak: 'break-all' }}
+      >
         {value ?? '—'}
       </div>
-      {sub && <div className="text-[10px] text-slate-600 mt-1.5 leading-relaxed">{sub}</div>}
+      {sub && (
+        <div className="text-[10px] text-slate-600 mt-1.5 leading-relaxed"
+          style={{ overflowWrap: 'anywhere' }}>
+          {sub}
+        </div>
+      )}
     </button>
   )
 }
@@ -451,7 +459,7 @@ export default function Dashboard() {
     <div className="p-4 md:p-6 space-y-5 min-h-full">
 
       {/* ── HEADER ──────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4">
         <div>
           <div className="flex items-center gap-2.5 mb-1">
             <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"

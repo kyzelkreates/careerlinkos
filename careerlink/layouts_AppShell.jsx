@@ -6,7 +6,7 @@
  * ============================================================
  */
 
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useLocation, Outlet } from 'react-router-dom'
 import Sidebar from './layouts_Sidebar'
 import TopNav  from './layouts_TopNav'
@@ -15,9 +15,15 @@ import { useAppStore } from './core_storage'
 export default function AppShell() {
   const sidebarExpanded = useAppStore(s => s.sidebarExpanded)
   const location        = useLocation()
+  const mainRef         = useRef(null)
 
   useEffect(() => {
+    // Close sidebar on every route change
     useAppStore.getState().closeSidebar?.()
+    // Scroll main content area to top — do not affect form typing
+    if (mainRef.current) {
+      mainRef.current.scrollTop = 0
+    }
   }, [location.pathname])
 
   return (
@@ -31,7 +37,11 @@ export default function AppShell() {
       <Sidebar />
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <TopNav />
-        <main className="flex-1 overflow-auto scrollbar-none">
+        <main
+          ref={mainRef}
+          className="flex-1 overflow-auto overflow-x-hidden scrollbar-none"
+          style={{ maxWidth: '100%' }}
+        >
           <Outlet />
         </main>
       </div>

@@ -74,7 +74,7 @@ function TextInput({ value, onChange, placeholder, type = 'text', warn }) {
     <div>
       <input
         type={type} value={value} onChange={onChange} placeholder={placeholder}
-        className={`w-full bg-slate-900/60 border rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-700
+        className={`w-full bg-slate-900/60 border rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-700 break-technical
           focus:outline-none focus:border-[#d4af37]/50 transition-colors
           ${warn ? 'border-red-500/60' : 'border-slate-700/50'}`}
       />
@@ -600,7 +600,7 @@ export default function LiveBackendSettings() {
         {/* ── ACTIVE PROVIDER SELECTOR ────────────────────── */}
         <Card border={`${GOLD}15`}>
           <SH icon="Layers" label="Select Active Provider" color={GOLD} />
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
             {PROVIDERS.map(p => {
               const isActive  = settings?.activeProvider === p.key
               const pInfo     = PROVIDER_INFO[p.key]
@@ -638,7 +638,7 @@ export default function LiveBackendSettings() {
         {/* ── PROVIDER CONFIG TABS ────────────────────────── */}
         <div>
           {/* Tab headers */}
-          <div className="flex gap-1 mb-0 overflow-x-auto pb-px">
+          <div className="tab-scroll-row mb-0">
             {PROVIDERS.map(p => (
               <button key={p.key} onClick={() => setActiveTab(p.key)}
                 className="flex items-center gap-1.5 px-4 py-2.5 rounded-t-xl text-xs font-bold whitespace-nowrap transition-all"

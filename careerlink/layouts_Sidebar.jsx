@@ -88,14 +88,14 @@ function NavItem({ item, active, onClick }) {
 
 function SidebarFooter() {
   return (
-    <div className="px-3 py-3 border-t border-slate-800/60">
+    <div className="px-3 py-3 border-t border-slate-800/60 safe-bottom">
       <div className="flex items-center gap-2">
-        <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]" />
-        <span className="text-xs text-slate-500">System Active</span>
-        <span className="ml-auto text-[10px] text-slate-700 font-mono">v1.0.0</span>
+        <div className="w-2 h-2 rounded-full bg-emerald-400 flex-shrink-0 shadow-[0_0_6px_rgba(52,211,153,0.6)]" />
+        <span className="text-xs text-slate-500 truncate">System Active</span>
+        <span className="ml-auto text-[10px] text-slate-700 font-mono flex-shrink-0">v1.1</span>
       </div>
-      <div className="mt-2 text-[9px] text-slate-700 text-center leading-relaxed">
-        Created by Kyzel Kreates
+      <div className="mt-2 text-[9px] text-slate-700 text-center leading-relaxed platform-credit">
+        CareerLink OS Powered 4P3X Intelligent AI™ Created by Kyzel Kreates™
       </div>
     </div>
   )
@@ -127,7 +127,9 @@ export default function Sidebar() {
       className={clsx(
         'fixed top-0 left-0 h-full z-50',
         'flex flex-col bg-[#090e1c] border-r border-slate-800/60',
-        'w-72 transition-transform duration-300 ease-in-out',
+        'transition-transform duration-300 ease-in-out',
+        // Responsive width: 280px on small phones, 288px default
+        'w-[280px] sm:w-72',
         isOpen ? 'translate-x-0' : '-translate-x-full'
       )}
     >

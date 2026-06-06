@@ -70,7 +70,7 @@ function ActivityModal({ existing, jobseekers, onClose, onSaved }) {
             <input type="date" value={form.date} onChange={e => set('date', e.target.value)}
               className="w-full bg-slate-900/60 border border-slate-700/50 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-[#d4af37]/50" />
           </div>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 sm:grid-cols-3 gap-2 sm:gap-3">
             <div>
               <label className="text-xs text-slate-400 font-medium mb-1 block">Start</label>
               <input type="time" value={form.startTime} onChange={e => { set('startTime', e.target.value); calcDuration(e.target.value, form.endTime) }}
@@ -178,7 +178,7 @@ export default function WeeklyActivity() {
             <button onClick={() => setModal({})} className="mt-3 text-sm text-[#d4af37] hover:underline">+ Log first activity</button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="table-responsive">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-800/60">

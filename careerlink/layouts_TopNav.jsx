@@ -29,18 +29,17 @@ export default function TopNav() {
       </button>
 
       {/* Brand */}
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="font-display font-bold text-[#d4af37] text-sm tracking-wide truncate">
+      <div className="flex items-center gap-1.5 min-w-0 flex-1">
+        <span className="font-display font-bold text-[#d4af37] text-sm tracking-wide truncate min-w-0">
           CareerLink OS™
         </span>
         {isDemoMode && (
-          <span className="flex-shrink-0 text-[9px] font-bold tracking-widest uppercase bg-amber-500/15 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded">
+          <span className="flex-shrink-0 text-[9px] font-bold tracking-widest uppercase bg-amber-500/15 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded whitespace-nowrap">
             DEMO
           </span>
         )}
       </div>
 
-      <div className="flex-1" />
 
       {/* Settings shortcut */}
       <button

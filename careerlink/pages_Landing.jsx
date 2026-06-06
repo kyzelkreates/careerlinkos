@@ -103,9 +103,10 @@ function CTAButton({ label, icon, onClick, primary = false, color = GOLD }) {
         cursor: 'pointer',
         transition: 'all 0.18s ease',
         letterSpacing: '0.01em',
-        flex: 1,
-        minWidth: 180,
+        flex: '1 1 auto',
+        minWidth: 0,
         maxWidth: 320,
+        width: '100%',
       }}
       onMouseEnter={e => {
         e.currentTarget.style.transform = 'translateY(-2px)'
@@ -138,6 +139,8 @@ export default function LandingPage() {
       color: '#e8eaf0',
       fontFamily: "'Inter', 'Segoe UI', sans-serif",
       overflowX: 'hidden',
+    paddingLeft: 'max(16px, env(safe-area-inset-left, 0px))',
+    paddingRight: 'max(16px, env(safe-area-inset-right, 0px))',
     }}>
 
       {/* ── TOP NAV ─────────────────────────────────────── */}
@@ -248,7 +251,7 @@ export default function LandingPage() {
         {/* Hero CTA buttons */}
         <div style={{
           display: 'flex', gap: 16, justifyContent: 'center',
-          flexWrap: 'wrap', padding: '0 8px',
+          flexWrap: 'wrap', padding: '0 8px', gap: 10,
         }}>
           <CTAButton
             label="Open Coach Dashboard"

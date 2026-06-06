@@ -67,7 +67,7 @@ function SH({ icon, label, color = GOLD, step }) {
 // ── Code block ────────────────────────────────────────────────
 function Code({ children, color = AMBER }) {
   return (
-    <pre className="rounded-xl px-4 py-3 text-xs font-mono leading-relaxed overflow-x-auto whitespace-pre-wrap break-all"
+    <pre className="rounded-xl px-3 sm:px-4 py-3 text-[10px] sm:text-xs font-mono leading-relaxed overflow-x-auto whitespace-pre-wrap break-all max-w-full"
       style={{ background: '#060b16', border: '1px solid #1a2035', color }}>
       {children}
     </pre>

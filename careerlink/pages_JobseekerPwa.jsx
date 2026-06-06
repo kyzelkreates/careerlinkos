@@ -228,7 +228,7 @@ export default function JobseekerPwa() {
   if (status === 'error') return <ErrorScreen />
 
   return (
-    <div className="min-h-screen bg-[#050810] flex flex-col max-w-lg mx-auto">
+    <div className="min-h-screen bg-[#050810] flex flex-col w-full max-w-lg mx-auto overflow-x-hidden">
 
       {/* Header */}
       <div className="sticky top-0 z-10 bg-[#050810]/95 backdrop-blur border-b border-slate-800/60 px-4 py-3">
@@ -261,7 +261,7 @@ export default function JobseekerPwa() {
       )}
 
       {/* Tab content */}
-      <div className="flex-1 overflow-auto px-4 py-4 pb-24">
+      <div className="flex-1 overflow-auto overflow-x-hidden px-4 py-4" style={{ paddingBottom: "calc(5.5rem + env(safe-area-inset-bottom, 0px))" }}>
         {tab === 'home'        && <HomeTab js={jobseeker} metrics={metrics} />}
         {tab === 'log'         && <LogActivityTab js={jobseeker} dataStore={dataStore} isDemoMode={isDemoMode} publicLinkId={publicLinkId} onResult={flashMsg} />}
         {tab === 'application' && <ApplicationTab js={jobseeker} dataStore={dataStore} isDemoMode={isDemoMode} publicLinkId={publicLinkId} onResult={flashMsg} />}
@@ -271,7 +271,7 @@ export default function JobseekerPwa() {
       </div>
 
       {/* Bottom tabs */}
-      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-lg bg-[#070d1a] border-t border-slate-800/70 px-1 py-1 z-20">
+      <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-lg bg-[#070d1a]/98 backdrop-blur border-t border-slate-800/70 px-1 pt-1 z-20 pwa-bottom-nav">
         <div className="grid grid-cols-6 gap-0.5">
           {TABS.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}

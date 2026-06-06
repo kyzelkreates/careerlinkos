@@ -137,7 +137,7 @@ export default function Evidence() {
             <button onClick={() => setModal({})} className="mt-3 text-sm text-[#d4af37] hover:underline">+ Add first record</button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="table-responsive">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-800/60">

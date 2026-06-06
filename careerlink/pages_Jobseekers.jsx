@@ -401,7 +401,7 @@ export default function Jobseekers() {
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="table-responsive">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-slate-800/60">

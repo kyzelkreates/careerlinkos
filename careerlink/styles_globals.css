@@ -1,8 +1,10 @@
 /**
  * ============================================================
  * CareerLink OS™ — Global Styles
- * Job Search Compliance Dashboard + Jobseeker Activity PWA
- * Powered by 4P3X Intelligent AI — Created by Kyzel Kreates
+ * CareerLink OS Powered 4P3X Intelligent AI™ Created by Kyzel Kreates™
+ *
+ * RESPONSIVE POLISH PASS — 2026-06-06
+ * Targets: 320px → 1920px+ across mobile, tablet, desktop, PWA
  * ============================================================
  */
 
@@ -27,6 +29,8 @@
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     scroll-behavior: smooth;
+    /* Prevent horizontal overflow at root */
+    overflow-x: hidden;
   }
 
   body {
@@ -36,11 +40,16 @@
     overflow: hidden;
     height: 100dvh;
     width: 100dvw;
+    /* Prevent horizontal scroll on body */
+    max-width: 100vw;
+    overflow-x: hidden;
   }
 
   #root {
     height: 100%;
     width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
   }
 
   /* Scrollbar */
@@ -57,7 +66,6 @@
   .cl-glass {
     @apply bg-[#0d1426]/80 backdrop-blur-md border border-[#1a2035]/60;
   }
-
   .cl-glass-heavy {
     @apply bg-[#0a0f1e]/90 backdrop-blur-xl border border-[#1a2035]/40;
   }
@@ -81,7 +89,7 @@
   .status-dot-idle    { @apply bg-amber-400; }
   .status-dot-warning { @apply bg-amber-400 animate-pulse; }
 
-  /* Navigation Item — used only via Sidebar component classes */
+  /* Navigation Item */
   .nav-item {
     @apply flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium
            text-slate-400 transition-all duration-150 cursor-pointer
@@ -98,6 +106,10 @@
            text-sm font-medium transition-all duration-150 cursor-pointer
            focus:outline-none focus:ring-2 focus:ring-[#d4af37]/50
            disabled:opacity-40 disabled:cursor-not-allowed;
+    /* Ensure text doesn't overflow buttons */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
   .btn-primary {
     @apply btn bg-[#d4af37]/10 text-[#d4af37] border border-[#d4af37]/30
@@ -129,6 +141,7 @@
   /* Badge */
   .cl-badge {
     @apply inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium tracking-wide;
+    flex-shrink: 0;
   }
   .cl-badge-gold   { @apply cl-badge bg-[#d4af37]/10 text-[#d4af37] border border-[#d4af37]/20; }
   .cl-badge-green  { @apply cl-badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20; }
@@ -154,6 +167,7 @@
   .text-balance  { text-wrap: balance; }
   .text-2xs      { font-size: 0.65rem; line-height: 1rem; }
 
+  /* iOS/Android safe area padding — critical for PWA */
   .safe-top    { padding-top:    env(safe-area-inset-top,    0px); }
   .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
   .safe-left   { padding-left:   env(safe-area-inset-left,   0px); }
@@ -167,16 +181,30 @@
     background: linear-gradient(135deg, #050810 0%, #0a0f1e 50%, #0d1426 100%);
   }
 
-  /* Subtle grid — used sparingly in CareerLink identity panels */
+  /* Subtle grid */
   .grid-cl {
     background-image:
       linear-gradient(rgba(212,175,55,0.02) 1px, transparent 1px),
       linear-gradient(90deg, rgba(212,175,55,0.02) 1px, transparent 1px);
     background-size: 40px 40px;
   }
+
+  /* Safe word-break for technical strings (API keys, URLs, IDs) */
+  .break-technical {
+    overflow-wrap: anywhere;
+    word-break: break-all;
+  }
+
+  /* Responsive text scaling helpers */
+  .text-fluid-sm  { font-size: clamp(0.75rem, 2vw, 0.875rem); }
+  .text-fluid-base { font-size: clamp(0.875rem, 2.5vw, 1rem); }
+  .text-fluid-lg  { font-size: clamp(1rem, 3vw, 1.25rem); }
+  .text-fluid-xl  { font-size: clamp(1.125rem, 4vw, 1.5rem); }
+  .text-fluid-2xl { font-size: clamp(1.25rem, 5vw, 2rem); }
+  .text-fluid-3xl { font-size: clamp(1.5rem, 6vw, 2.5rem); }
 }
 
-/* ─── Mobile / PWA Responsive Utilities ─────────────────────── */
+/* ─── Mobile / PWA / iOS / Android Responsive Utilities ─── */
 
 /* Prevent overscroll bounce on iOS */
 html, body {
@@ -184,36 +212,195 @@ html, body {
   -webkit-overflow-scrolling: touch;
 }
 
-/* Ensure text never overflows on small screens */
-.truncate-mobile {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  max-width: 100%;
-}
-
-/* Prevent horizontal scroll on mobile */
-main, .page-content {
+/* Ensure nothing causes horizontal scroll */
+main,
+.page-content,
+[data-page],
+.cl-page {
   max-width: 100vw;
   overflow-x: hidden;
 }
 
-/* Touch targets — minimum on mobile */
-@media (max-width: 640px) {
-  button, [role="button"] {
-    min-height: 36px;
-  }
-  .font-mono.text-5xl  { font-size: 2rem; }
-  .font-mono.text-4xl  { font-size: 1.75rem; }
-  .font-mono.text-3xl  { font-size: 1.5rem; }
+/* Long technical strings (env vars, API keys, IDs, URLs) must wrap */
+code, pre, .font-mono,
+[data-technical],
+input[type="text"],
+input[type="url"],
+input[type="email"] {
+  overflow-wrap: anywhere;
+  word-break: break-all;
 }
 
-/* Scrollbar hide utility */
+/* ─── Touch targets ────────────────────────────────────────── */
+@media (max-width: 640px) {
+  button,
+  [role="button"],
+  a[href],
+  label[for] {
+    min-height: 40px;
+    /* Expand tap target without changing visual size */
+  }
+
+  /* Fluid mono/display numbers — prevent overflow on metric cards */
+  .font-mono.text-5xl  { font-size: clamp(1.75rem, 8vw, 3rem); }
+  .font-mono.text-4xl  { font-size: clamp(1.5rem,  7vw, 2.25rem); }
+  .font-mono.text-3xl  { font-size: clamp(1.25rem, 6vw, 1.875rem); }
+  .font-mono.text-2xl  { font-size: clamp(1.1rem,  5vw, 1.5rem); }
+
+  /* Headings scale down gracefully */
+  h1.text-3xl, .text-3xl { font-size: clamp(1.25rem, 6vw, 1.875rem) !important; }
+  h1.text-2xl, .text-2xl { font-size: clamp(1.1rem,  5vw, 1.5rem)  !important; }
+
+  /* Ensure no fixed widths trap content on small screens */
+  .min-w-\[180px\] { min-width: 140px !important; }
+}
+
+/* Scrollbar hide utility — explicit both syntaxes */
 .scrollbar-none::-webkit-scrollbar { display: none; }
 .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* Jobseeker PWA — full-screen layout */
+/* ─── Scroll-to-top anchor ─────────────────────────────────── */
+/* Applied by AppShell on route change — instant, no animation jank */
+.scroll-to-top-anchor {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  height: 0;
+  width: 0;
+  opacity: 0;
+}
+
+/* ─── Jobseeker PWA — full-screen layout ───────────────────── */
 #jobseeker-app-root {
   height: 100dvh;
   overflow: hidden;
+}
+
+/* PWA fixed bottom nav — safe-area for iOS home indicator */
+.pwa-bottom-nav {
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 4px);
+}
+
+/* iOS safe-area top — for sticky headers inside scrollable PWA */
+.pwa-header-safe {
+  padding-top: max(env(safe-area-inset-top, 0px), 0px);
+}
+
+/* ─── Tables — horizontal scroll on mobile only ────────────── */
+.table-responsive {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
+.table-responsive table {
+  min-width: 480px;
+}
+
+/* ─── Modal overlay — always fits viewport ─────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0)
+           env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0);
+}
+
+@media (min-width: 640px) {
+  .modal-overlay {
+    align-items: center;
+  }
+}
+
+.modal-sheet {
+  max-height: calc(100dvh - env(safe-area-inset-top, 0px) - 16px);
+  overflow-y: auto;
+  width: 100%;
+  max-width: 640px;
+}
+
+/* ─── Card grid — responsive auto-fit ─────────────────────── */
+.grid-cards-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 1rem;
+}
+
+.grid-cards-4 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 0.75rem;
+}
+
+/* ─── Provider tab scrolling ───────────────────────────────── */
+.tab-scroll-row {
+  display: flex;
+  gap: 0.25rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 1px;
+}
+
+.tab-scroll-row::-webkit-scrollbar { display: none; }
+
+.tab-scroll-row button {
+  flex-shrink: 0;
+}
+
+/* ─── Platform Credit — never overflow ─────────────────────── */
+.platform-credit {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
+  max-width: 100%;
+}
+
+/* ─── Page wrapper — all authenticated pages ───────────────── */
+.cl-page-wrapper {
+  padding: 1rem;
+  min-height: 100%;
+}
+
+@media (min-width: 768px) {
+  .cl-page-wrapper {
+    padding: 1.5rem;
+  }
+}
+
+/* ─── Global text overflow protection ─────────────────────── */
+p, span, div, li, td, th, label {
+  max-width: 100%;
+}
+
+/* Cards — prevent content spill */
+.cl-card,
+[class*="rounded-xl"],
+[class*="rounded-2xl"] {
+  min-width: 0;
+}
+
+/* Flex children — prevent overflow */
+.flex > * {
+  min-width: 0;
+}
+
+/* ─── Large desktop (1920px+) ──────────────────────────────── */
+@media (min-width: 1920px) {
+  /* Landing page — cap content width for readability */
+  .landing-section-inner {
+    max-width: 1400px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+}
+
+/* ─── Print / export ───────────────────────────────────────── */
+@media print {
+  body { background: white; color: black; }
+  .no-print { display: none; }
 }
